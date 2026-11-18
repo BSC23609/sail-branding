@@ -105,6 +105,23 @@ a.btn.wa{background:#1e8e4e;color:#fff;text-decoration:none;display:inline-block
 .lcard{background:#fff;border-radius:12px;padding:28px;width:100%;max-width:360px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
 .lbrand{font-size:20px;font-weight:700;color:var(--navy)}
 .lcard .f input{border:1px solid #cdd3dd;border-radius:6px;padding:9px 10px;width:100%}
+.qgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:560px){.qgrid{grid-template-columns:1fr}}
+.qt{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#fff;display:flex;flex-direction:column;gap:8px}
+.qt-over{border-color:#f3c4c1;background:#fffafa}
+.qt-empty{background:#fafbfc;color:var(--muted)}
+.qt-h{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;white-space:nowrap}
+.qt-h b{font-size:14px}.qt-h>span:not(.chip){font-size:12px;color:var(--muted)}
+.qt-big .l{font-size:11.5px;color:var(--muted)}
+.qt-big .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.qt-big.pos .v{color:var(--ok)}.qt-big.neg .v{color:var(--bad)}
+.qt-bar{height:6px;background:#eceff4;border-radius:4px;overflow:hidden}.qt-bar i{display:block;height:100%;border-radius:4px}
+.qt-rows{display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.qt-rows>div{display:flex;justify-content:space-between;gap:8px;font-variant-numeric:tabular-nums}
+.qt-rows>div>span:first-child{color:var(--muted)}
+.qt-rows .sub{font-size:11.5px;color:var(--muted);padding-left:10px}
+.qt-foot{font-size:11.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:7px;margin-top:auto}
+.qt-none{font-size:13px;padding:14px 0}
 .pill-hr{color:var(--hr);font-weight:700} .pill-str{color:var(--str);font-weight:700}
 </style>
 </head>
@@ -214,6 +231,7 @@ function pot(prod,fy,q){
   if(now<qStart(fy,q)){status='Not started';cls='c-mute';}
   else if(now<=qEnd(fy,q)){status = early&&released>0 ? 'Accruing · part released' : `Accruing · locked till ${fmtD(useFrom)}`; cls=early&&released>0?'c-info':'c-warn';}
   else if(expired){status='Usage window closed';cls='c-mute';}
+  else if(now>useTo){status='Spend window ended';cls='c-mute';}
   else if(now>=useFrom){status = held>0?'Usable · part on hold':'Usable now'; cls='c-ok';}
   if(held>0 && now>qEnd(fy,q) && !expired && released===0){status='On hold (SAIL)';cls='c-bad';}
   return {id,prod,fy,q,t,accrued,released,held,useFrom,useTo,expired,planned,pending,approved,spent,used,gift,giftCap,balance,lapsed,status,cls,acts};
@@ -429,38 +447,34 @@ function prodSummary(p){
   return {pots,t,acc,avail,pending,used,locked,giftUsed,giftCap,lapsed,live};
 }
 
+function quarterTile(x,P){
+  const nq=nextQ(x.fy,x.q);
+  const lift=`${MON[(x.q-1)*3]}–${MON[(x.q-1)*3+2]}`, spend=`${MON[(nq.q-1)*3]}–${MON[(nq.q-1)*3+2]}`;
+  if(!x.accrued && !x.acts.length) return `<div class="qt qt-empty"><div class="qt-h"><b>Q${x.q}</b><span>${lift} lifting</span></div><div class="qt-none">No lifting entered yet</div><div class="qt-foot">Spend in ${spend}</div></div>`;
+  const left=x.accrued-x.used, over=left<0;
+  const pct=x.accrued?Math.min(100,x.used/x.accrued*100):100;
+  const gp=x.giftCap?x.gift/x.giftCap*100:0;
+  const pending=x.planned+x.pending;
+  return `<div class="qt ${over?'qt-over':''}">
+    <div class="qt-h"><b>Q${x.q}</b><span>${lift} lifting</span><span class="chip ${x.cls}" style="margin-left:auto">${x.status}</span></div>
+    <div class="qt-big ${over?'neg':'pos'}"><div class="l">${over?'Excess':'Available'}</div><div class="v">${over?'−'+inr(-left):inr(left)}</div></div>
+    <div class="qt-bar"><i style="width:${pct}%;background:${over?'var(--bad)':pct>=80?'var(--warn)':P.color}"></i></div>
+    <div class="qt-rows">
+      <div><span>Lifting</span><b>${tn(x.t)} t</b></div>
+      <div><span>Budget</span><b>${inr(x.accrued)}</b></div>
+      <div><span>Used</span><b>${inr(x.used)}</b></div>
+      ${pending?`<div class="sub"><span>of which draft / pending SAIL</span><span>${inr(pending)}</span></div>`:''}
+      <div><span>Gifting</span><b style="color:${gp>100?'var(--bad)':gp>=80?'var(--warn)':'inherit'}">${inr(x.gift)} <span class="hint" style="font-weight:400">/ ${inr(x.giftCap)}</span></b></div>
+    </div>
+    <div class="qt-foot">Spend in ${spend} · ${fmtD(x.useFrom)} – ${fmtD(x.useTo)}</div>
+  </div>`;
+}
 function renderDash(){
   if(!S.loaded.lift) return '<div class="empty">Loading lifting data…</div>';
-  const sums=PRODS.map(p=>({p,...prodSummary(p)}));
-  const cards=sums.map(({p,t,acc,avail,pending,used,locked,giftUsed,giftCap,lapsed})=>{
-    const gp=giftCap?giftUsed/giftCap*100:0;
-    const gcol=gp>=100?'var(--bad)':gp>=80?'var(--warn)':'var(--ok)';
-    return `<div class="card"><h2><span class="dot" style="background:${p.color}"></span>${p.name} <span class="hint" style="font-weight:400">· ${fyLabel(S.fy)}</span></h2>
-      <div class="kpis">
-        <div class="kpi"><div class="l">Tonnes lifted</div><div class="v">${tn(t)} t</div><div class="s">× ₹${S.cfg.rate}/t</div></div>
-        <div class="kpi"><div class="l">Budget accrued</div><div class="v">${inr(acc)}</div><div class="s">${inr(locked)} still locked</div></div>
-        <div class="kpi" style="background:var(--okbg)"><div class="l">Available to use now</div><div class="v" style="color:var(--ok)">${inr(avail)}</div><div class="s">released, not yet committed</div></div>
-        <div class="kpi"><div class="l">Draft + pending SAIL</div><div class="v">${inr(pending)}</div><div class="s">planned or awaiting SAIL reply</div></div>
-        <div class="kpi"><div class="l">Approved / spent</div><div class="v">${inr(used)}</div><div class="s">${lapsed>0?`<span style="color:var(--bad)">${inr(lapsed)} lapsed unused</span>`:'nothing lapsed'}</div></div>
-        <div class="kpi"><div class="l">Gifting in usable budget</div><div class="v">${inr(giftUsed)}</div><div class="s">cap ${inr(giftCap)} (${S.cfg.giftCapPct}%)</div><div class="meter"><i style="width:${Math.min(100,gp)}%;background:${gcol}"></i></div></div>
-      </div></div>`;}).join('');
-
-  const qt=sums.map(({p,pots})=>{
-    const rows=pots.map(x=>`<tr>
-      <td><b>Q${x.q}</b> <span class="hint">${MON.slice((x.q-1)*3,x.q*3).join('–')}</span></td>
-      <td class="n">${tn(x.t)}</td><td class="n">${inr(x.accrued)}</td>
-      <td>${fmtMY(x.useFrom)} – ${fmtMY(x.useTo)}</td>
-      <td><span class="chip ${x.cls}">${x.status||'—'}</span></td>
-      <td class="n">${inr(x.released)}</td>
-      <td class="n">${inr(x.planned+x.pending)}</td>
-      <td class="n">${inr(x.approved+x.spent)}</td>
-      <td class="n"><b>${x.expired?'<span class="hint">closed</span>':x.balance<0?`<span style="color:var(--bad)">−${inr(-x.balance)} excess</span>`:inr(x.balance)}</b></td>
-      <td class="n">${x.accrued?`<span style="color:${x.gift>x.giftCap?'var(--bad)':'inherit'}">${inr(x.gift)}</span> <span class="hint">/ ${inr(x.giftCap)}</span>`:'—'}</td>
-    </tr>`).join('');
-    const T=k=>pots.reduce((s,x)=>s+x[k],0);
-    return `<div class="card"><h2><span class="dot" style="background:${p.color}"></span>${p.name} — quarter-wise budget</h2><div class="tw"><table>
-      <thead><tr><th>Lifting quarter</th><th class="n">Tonnes</th><th class="n">Accrued</th><th>Use window</th><th>Status</th><th class="n">Released</th><th class="n">Draft / pending SAIL</th><th class="n">Approved / spent</th><th class="n">Balance</th><th class="n">Gifting / cap</th></tr></thead>
-      <tbody>${rows}<tr class="tot"><td>Total</td><td class="n">${tn(T('t'))}</td><td class="n">${inr(T('accrued'))}</td><td></td><td></td><td class="n">${inr(T('released'))}</td><td class="n">${inr(T('planned')+T('pending'))}</td><td class="n">${inr(T('approved')+T('spent'))}</td><td class="n">${inr(T('balance'))}</td><td></td></tr></tbody></table></div></div>`;
+  const cards=PRODS.map(P=>{
+    const pots=potsFor(P.k,S.fy);
+    return `<div class="card"><h2><span class="dot" style="background:${P.color}"></span>${P.name} <span class="hint" style="font-weight:400">· ${fyLabel(S.fy)} · each quarter's budget is used in the following quarter</span></h2>
+      <div class="qgrid">${pots.map(x=>quarterTile(x,P)).join('')}</div></div>`;
   }).join('');
 
   const upcoming = S.acts.filter(a=>a.status==='Sent to SAIL').sort((a,b)=>(a.submittedOn||'').localeCompare(b.submittedOn||''));
@@ -468,10 +482,8 @@ function renderDash(){
 
   return `<div class="grid g2">${cards}</div>
   <div class="card" style="margin-top:14px"><h2>Monthly lifting — ${fyLabel(S.fy)}</h2>${chart()}</div>
-  <div class="grid" style="margin-top:14px">${qt}</div>
   <div class="card" style="margin-top:14px"><h2>Waiting for SAIL approval</h2><div class="tw">${pend}</div></div>`;
 }
-
 function chart(){
   const ms=fyMonths(S.fy);
   const vals=ms.map(m=>[tonnes('HR',m.key),tonnes('STR',m.key)]);
