@@ -78,6 +78,29 @@ td input.t{max-width:120px;text-align:right}
 .stmt td.xs{background:#C00000;color:#fff;font-weight:700} .stmt td.rm{color:var(--ok)}
 .stmt tr.dim td{color:#9aa1ad} .stmt a{color:var(--navy)}
 a.btn.wa{background:#1e8e4e;color:#fff;text-decoration:none;display:inline-block;border-radius:7px;font-weight:600}
+ #bell{position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:34px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:9px;cursor:pointer;transition:background .15s}
+#bell:hover,#bell.open{background:rgba(255,255,255,.18)}
+#bell .bn{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e5484d;color:#fff;font-size:10.5px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--navy)}
+.np{position:fixed;top:58px;right:18px;width:440px;max-width:calc(100vw - 24px);max-height:calc(100vh - 80px);display:flex;flex-direction:column;background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(10,30,70,.22),0 2px 6px rgba(10,30,70,.08);border:1px solid #e6e9f0;z-index:40;overflow:hidden;animation:npIn .16s ease-out}
+@keyframes npIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.np-h{padding:16px 18px 10px;display:flex;align-items:baseline;gap:8px}
+.np-h b{font-size:15px}.np-h span{font-size:12px;color:var(--muted)}
+.np-f{display:flex;gap:6px;padding:0 18px 12px;flex-wrap:wrap;border-bottom:1px solid #eef0f4}
+.np-f button{border:1px solid #e3e7ee;background:#fff;border-radius:999px;padding:4px 11px;font:inherit;font-size:12px;color:var(--muted);cursor:pointer}
+.np-f button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.np-b{overflow:auto;padding:6px 0}
+.np-i{display:flex;gap:12px;padding:12px 18px;cursor:default;position:relative}
+.np-i+.np-i{border-top:1px solid #f1f3f7}
+.np-i.click{cursor:pointer}.np-i.click:hover{background:#f7f9fc}
+.np-ic{flex:0 0 32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.sev-bad .np-ic{background:#fdecec;color:#c62828}.sev-warn .np-ic{background:#fff4dc;color:#a46a00}.sev-info .np-ic{background:#e7eefb;color:var(--navy)}.sev-ok .np-ic{background:#e5f4ea;color:#1d7a46}
+.np-t{font-size:13px;line-height:1.45;color:var(--ink)}
+.np-m{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;gap:8px;align-items:center}
+.np-dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.sev-bad .np-dot{background:#e5484d}.sev-warn .np-dot{background:#f5a524}.sev-info .np-dot{background:#3b6fd8}.sev-ok .np-dot{background:#2e9e5b}
+.np-e{padding:36px 18px;text-align:center;color:var(--muted);font-size:13px}
+.np-x{padding:10px 18px;border-top:1px solid #eef0f4;background:#fafbfd;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
+.np-x a.btn{font-size:12px;padding:5px 10px}
 .login{min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(160deg,#0A2B66,#01578C);padding:20px}
 .lcard{background:#fff;border-radius:12px;padding:28px;width:100%;max-width:360px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
 .lbrand{font-size:20px;font-weight:700;color:var(--navy)}
@@ -107,7 +130,7 @@ a.btn.wa{background:#1e8e4e;color:#fff;text-decoration:none;display:inline-block
   <div class="ctrls">
     <label>Financial year</label><select id="fySel"></select>
     <label>As of</label><input type="date" id="asOf">
-    <button id="bell" type="button" title="Notifications" style="position:relative;background:none;border:1px solid #2c4f91;color:#fff;border-radius:6px;padding:5px 10px;font:inherit;cursor:pointer">🔔<span class="bn" style="display:none;position:absolute;top:-7px;right:-7px;background:#d93025;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 6px">0</span></button>
+    <button id="bell" type="button" title="Notifications" aria-label="Notifications"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="bn" style="display:none">0</span></button>
     <span id="who" style="font-size:12px;opacity:.85;margin-left:6px"></span>
     <button id="logout" type="button" style="background:none;border:1px solid #2c4f91;color:#fff;border-radius:6px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer">Sign out</button>
   </div>
@@ -269,15 +292,34 @@ function alerts(){
 }
 function bellCount(){ return alerts().filter(a=>a.sev==='c-bad'||a.sev==='c-warn').length; }
 function updateBell(){ const b=document.getElementById('bell'); if(!b||!S.me) return; const n=bellCount(); b.querySelector('.bn').textContent=n; b.querySelector('.bn').style.display=n?'':'none'; }
+const NP_KINDS={use:['Budget','₹'],claim:['Claims','🧾'],gift:['Gifting','🎁'],sail:['SAIL approval','⏳']};
+let npFilter='all';
+function closeBell(){ const p=document.getElementById('np'); if(p) p.remove(); document.getElementById('bell')?.classList.remove('open'); document.removeEventListener('mousedown',npOutside,true); document.removeEventListener('keydown',npEsc,true); }
+function npOutside(e){ if(!e.target.closest('#np')&&!e.target.closest('#bell')) closeBell(); }
+function npEsc(e){ if(e.key==='Escape') closeBell(); }
 function openBell(){
-  const al=alerts(), kinds={use:'Use the budget',claim:'Claims to raise',gift:'Gifting limit',sail:'SAIL approvals'};
-  const groups=Object.keys(kinds).map(k=>({k,items:al.filter(a=>a.kind===k)})).filter(g=>g.items.length);
-  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" id="mbg"><div class="modal" style="max-width:760px">
-    <h2>Notifications <span class="hint" style="font-weight:400">· as of ${fmtD(asOfDate())}</span></h2>
-    ${groups.length?groups.map(g=>`<h3 style="margin-top:14px">${kinds[g.k]} (${g.items.length})</h3><table><tbody>${g.items.map(x=>`<tr><td style="width:24px"><span class="chip ${x.sev}">●</span></td><td>${esc(x.t)}</td><td style="width:70px">${x.id?`<button class="btn sec sm" data-bell-open="${x.id}">Open</button>`:''}</td></tr>`).join('')}</tbody></table>`).join(''):'<div class="empty">Nothing needs attention right now.</div>'}
-    <div class="toolbar" style="margin:16px 0 0"><span class="hint">Red = act now · amber = coming up · blue/green = for information. Reminder lead time is set under Settings.</span><span class="sp"></span><button class="btn sec" id="bClose">Close</button></div></div></div>`;
-  document.getElementById('bClose').onclick=closeModal; document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeModal();};
-  document.querySelectorAll('[data-bell-open]').forEach(b=>b.onclick=()=>{closeModal();openAct(b.dataset.bellOpen);});
+  if(document.getElementById('np')){ closeBell(); return; }
+  const panel=document.createElement('div'); panel.id='np'; panel.className='np'; document.body.appendChild(panel);
+  document.getElementById('bell').classList.add('open');
+  document.addEventListener('mousedown',npOutside,true); document.addEventListener('keydown',npEsc,true);
+  drawBell();
+}
+function drawBell(){
+  const panel=document.getElementById('np'); if(!panel) return;
+  const all=alerts(), urgent=all.filter(a=>a.sev==='c-bad'||a.sev==='c-warn').length;
+  const list=npFilter==='all'?all:all.filter(a=>a.kind===npFilter);
+  const cnt=k=>all.filter(a=>a.kind===k).length;
+  const sevCls={'c-bad':'sev-bad','c-warn':'sev-warn','c-info':'sev-info','c-ok':'sev-ok'};
+  const sevTxt={'c-bad':'Action needed','c-warn':'Coming up','c-info':'Heads-up','c-ok':'For information'};
+  panel.innerHTML=`<div class="np-h"><b>Notifications</b><span>${urgent?urgent+' need attention':'All clear'} · as of ${fmtD(asOfDate())}</span></div>
+    <div class="np-f"><button data-f="all" class="${npFilter==='all'?'on':''}">All ${all.length}</button>${Object.entries(NP_KINDS).filter(([k])=>cnt(k)).map(([k,[l]])=>`<button data-f="${k}" class="${npFilter===k?'on':''}">${l} ${cnt(k)}</button>`).join('')}</div>
+    <div class="np-b">${list.length?list.map(x=>`<div class="np-i ${sevCls[x.sev]} ${x.id?'click':''}" ${x.id?`data-np="${x.id}"`:''}>
+        <div class="np-ic">${NP_KINDS[x.kind]?.[1]||'•'}</div>
+        <div><div class="np-t">${esc(x.t)}</div><div class="np-m"><span class="np-dot"></span>${sevTxt[x.sev]} · ${NP_KINDS[x.kind]?.[0]||''}${x.id?' · <span style="color:var(--navy);font-weight:600">Open ›</span>':''}</div></div>
+      </div>`).join(''):`<div class="np-e">✓ Nothing here right now.</div>`}</div>
+    ${!S.guest&&all.length&&((S.cfg.notify?.budgetWa||[]).length||(S.cfg.notify?.claimsWa||[]).length)?`<div class="np-x">Share on WhatsApp: ${waButtons('Budget',all)} ${waButtons('Claims',all)}</div>`:''}`;
+  panel.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{npFilter=b.dataset.f;drawBell();});
+  panel.querySelectorAll('[data-np]').forEach(el=>el.onclick=()=>{closeBell();openAct(el.dataset.np);});
 }
 
 /* ---------- db ---------- */
@@ -367,7 +409,7 @@ function render(){
   if(S.guest) pre+='<div class="banner" style="background:var(--infobg);color:var(--info)">You are viewing the tracker without signing in. Figures are read-only; documents are hidden. Use <b>Sign in to edit</b> (top right) to add or change entries.</div>';
   else if(S.readonly) pre+='<div class="banner warn">View-only access: you can see the figures but not change them. Ask an admin for editor access.</div>';
   if(S.asOf!==todayStr()) pre+=`<div class="banner warn">Showing the budget position as of <b>${fmtD(asOfDate())}</b> (not today). Clear the “As of” date to return to today.</div>`;
-  updateBell();
+  updateBell(); if(document.getElementById('np')) drawBell();
   const body = {dash:renderDash,stmt:renderStmt,lift:renderLift,act:renderActs,terms:renderTerms,set:renderSettings}[S.tab]();
   m.innerHTML=pre+body;
   bind();
@@ -424,9 +466,7 @@ function renderDash(){
   const upcoming = S.acts.filter(a=>a.status==='Sent to SAIL').sort((a,b)=>(a.submittedOn||'').localeCompare(b.submittedOn||''));
   const pend = upcoming.length?`<table><thead><tr><th>Activity</th><th>Product</th><th>Budget from</th><th>Sent on</th><th class="n">Amount</th></tr></thead><tbody>${upcoming.slice(0,8).map(a=>{const P=PRODS.find(p=>p.k===a.prod);const[,fy,q]=a.pot.split('_');return `<tr><td>${esc(a.title)}${isGift(a.category)?' <span class="chip c-info">Gifting</span>':''}</td><td class="${P.cls}">${P.name}</td><td>${qLabel(+fy,+q.slice(1))}</td><td>${a.submittedOn?fmtD(new Date(a.submittedOn)):'—'}</td><td class="n">${inr(a.estAmount)}</td></tr>`;}).join('')}</tbody></table>`:'<div class="empty">Nothing waiting on SAIL right now.</div>';
 
-  const al=alerts();
-  const alHtml=`<div class="card" style="margin-bottom:14px"><h2>Alerts <span class="hint" style="font-weight:400">· use the budget, claims, gifting limit, SAIL approvals</span></h2>${al.length?`<table><tbody>${al.map(x=>`<tr><td style="width:90px"><span class="chip ${x.team==='Claims'?'c-info':'c-mute'}">${x.team} team</span></td><td><span class="chip ${x.sev}" style="margin-right:6px">●</span>${esc(x.t)}</td><td style="width:70px">${x.id?`<button class="btn sec sm" data-edit="${x.id}">Open</button>`:''}</td></tr>`).join('')}</tbody></table>`:'<div class="empty" style="padding:12px">No alerts right now.</div>'}${al.length?`<div class="toolbar" style="margin:12px 0 0;flex-wrap:wrap">${waButtons('Budget',al)} ${waButtons('Claims',al)}</div>`:''}</div>`;
-  return alHtml+`<div class="grid g2">${cards}</div>
+  return `<div class="grid g2">${cards}</div>
   <div class="card" style="margin-top:14px"><h2>Monthly lifting — ${fyLabel(S.fy)}</h2>${chart()}</div>
   <div class="grid" style="margin-top:14px">${qt}</div>
   <div class="card" style="margin-top:14px"><h2>Waiting for SAIL approval</h2><div class="tw">${pend}</div></div>`;
