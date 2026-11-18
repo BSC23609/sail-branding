@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SAIL Branding Budget Tracker · Bharat Steel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0A2B66; --blue:#01578C; --ink:#1E1D1D; --muted:#5b6475; --line:#e3e7ee; --bg:#F4F6F8; --card:#fff;
+  --hr:#01578C; --str:#C7701E; --ok:#1d7a46; --okbg:#e5f4ea; --warn:#9a6200; --warnbg:#fff4dc; --bad:#b3261e; --badbg:#fde8e6; --info:#0A2B66; --infobg:#e7eefb;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+header{background:var(--navy);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
+header .sub{font-size:12px;opacity:.75}
+header .ctrls{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+header label{font-size:12px;opacity:.85}
+header select,header input{background:#163a7a;color:#fff;border:1px solid #2c4f91;border-radius:6px;padding:6px 8px;font:inherit}
+nav{display:flex;gap:4px;padding:0 22px;background:#fff;border-bottom:1px solid var(--line);overflow-x:auto}
+nav button{border:0;background:none;padding:13px 14px;font:inherit;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+nav button.on{color:var(--navy);border-bottom-color:var(--navy)}
+main{padding:20px 22px;max-width:1320px;margin:0 auto}
+.banner{padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px}
+.banner.warn{background:var(--warnbg);color:var(--warn)}
+.banner.bad{background:var(--badbg);color:var(--bad)}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:900px){.g2{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.card h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.card h3{font-size:13px;margin:0 0 8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.kpi{background:var(--bg);border-radius:8px;padding:10px 12px}
+.kpi .l{font-size:11.5px;color:var(--muted)}
+.kpi .v{font-size:19px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+.meter{height:8px;background:#e6e9ef;border-radius:5px;overflow:hidden;margin-top:6px}
+.meter>i{display:block;height:100%;border-radius:5px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px;background:#fafbfc}
+td.n,th.n{text-align:right}
+tr.tot td{font-weight:700;background:#fafbfc}
+.chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.c-ok{background:var(--okbg);color:var(--ok)} .c-warn{background:var(--warnbg);color:var(--warn)} .c-bad{background:var(--badbg);color:var(--bad)} .c-info{background:var(--infobg);color:var(--info)} .c-mute{background:#eef0f3;color:var(--muted)}
+.tw{overflow-x:auto}
+button.btn{background:var(--navy);color:#fff;border:0;border-radius:7px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.btn.sec{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+button.btn.sm{padding:5px 10px;font-size:12.5px}
+button.btn.danger{background:#fff;color:var(--bad);border:1px solid var(--bad)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.toolbar .sp{flex:1}
+input,select,textarea{font:inherit;color:var(--ink)}
+.f input,.f select,.f textarea,td input,td select{border:1px solid #cdd3dd;border-radius:6px;padding:6px 8px;background:#fff;width:100%}
+td input.t{max-width:120px;text-align:right}
+.form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media(max-width:800px){.form{grid-template-columns:1fr}}
+.f label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:500}
+.f.w2{grid-column:span 2} .f.w3{grid-column:1/-1}
+.hint{font-size:12px;color:var(--muted)}
+.err{color:var(--bad);font-size:12.5px;margin-top:8px;white-space:pre-line}
+.modal-bg{position:fixed;inset:0;background:rgba(10,20,40,.45);display:flex;align-items:flex-start;justify-content:center;padding:40px 14px;overflow:auto;z-index:20}
+.modal{background:#fff;border-radius:12px;max-width:860px;width:100%;padding:20px}
+.modal h2{margin:0 0 14px;font-size:17px}
+.rules li{margin-bottom:6px;line-height:1.5}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:5px}
+.empty{padding:26px;text-align:center;color:var(--muted)}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;z-index:30}
+.stmt{padding:0;overflow:hidden}.stmt table th,.stmt table td{border:1px solid #d5d9e0}
+.stmt tr.yh th{background:#FFF200;color:#000;text-align:center;font-size:14px;text-transform:none;letter-spacing:0;padding:9px}
+.stmt tr.yc th{background:#FFF200;color:#000;font-size:12.5px;text-transform:none;letter-spacing:0}
+.stmt td.xs{background:#C00000;color:#fff;font-weight:700} .stmt td.rm{color:var(--ok)}
+.stmt tr.dim td{color:#9aa1ad} .stmt a{color:var(--navy)}
+a.btn.wa{background:#1e8e4e;color:#fff;text-decoration:none;display:inline-block;border-radius:7px;font-weight:600}
+.login{min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(160deg,#0A2B66,#01578C);padding:20px}
+.lcard{background:#fff;border-radius:12px;padding:28px;width:100%;max-width:360px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.lbrand{font-size:20px;font-weight:700;color:var(--navy)}
+.lcard .f input{border:1px solid #cdd3dd;border-radius:6px;padding:9px 10px;width:100%}
+.pill-hr{color:var(--hr);font-weight:700} .pill-str{color:var(--str);font-weight:700}
+</style>
+</head>
+<body>
+<div id="login" class="login" style="display:none">
+  <form id="lForm" class="lcard" autocomplete="on">
+    <div class="lbrand">SAIL Branding Budget</div>
+    <div class="hint" style="margin-bottom:16px">Bharat Steel (Chennai) Pvt. Ltd.</div>
+    <div class="f"><label>Email</label><input id="lEmail" type="email" autocomplete="username" required></div>
+    <div class="f" style="margin-top:10px"><label>Password</label><input id="lPw" type="password" autocomplete="current-password" required></div>
+    <div id="lErr" class="err"></div>
+    <button class="btn" id="lBtn" style="width:100%;margin-top:14px;padding:10px">Sign in</button>
+    <div class="hint" style="margin-top:12px">Forgot your password? Ask a tracker admin to reset it.</div>
+  </form>
+</div>
+<div id="app" style="display:none">
+<header>
+  <div>
+    <h1>SAIL Branding Budget Tracker</h1>
+    <div class="sub">Bharat Steel (Chennai) Pvt. Ltd. · HR Coil &amp; Structural lifting</div>
+  </div>
+  <div class="ctrls">
+    <label>Financial year</label><select id="fySel"></select>
+    <label>As of</label><input type="date" id="asOf">
+    <span id="who" style="font-size:12px;opacity:.85;margin-left:6px"></span>
+    <button id="logout" type="button" style="background:none;border:1px solid #2c4f91;color:#fff;border-radius:6px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer">Sign out</button>
+  </div>
+</header>
+<nav id="tabs">
+  <button data-t="dash" class="on">Dashboard</button>
+  <button data-t="stmt">Quarter statement</button>
+  <button data-t="lift">Lifting entry</button>
+  <button data-t="act">Branding activities</button>
+  <button data-t="set">Settings &amp; rules</button>
+</nav>
+<main id="main"><div class="empty">Loading…</div></main>
+<div id="modalRoot"></div>
+</div>
+
+<script>
+/* ---------- state ---------- */
+const PRODS = [{k:'HR',name:'HR Coil',cls:'pill-hr',color:'var(--hr)'},{k:'STR',name:'Structural',cls:'pill-str',color:'var(--str)'}];
+const MON = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+const STATUSES = ['Draft','Sent to SAIL','Approved by SAIL','Rejected','Completed'];
+const DEFAULT_CATS = ['Gifting - T-shirts','Gifting - Stationery','Gifting - Other','Signage / Hoarding','Shop / Yard branding','Vehicle branding','Print & Brochures','Digital / Social media','Dealer & customer meet','Other'];
+const CLAIMS = ['Not claimed','Draft invoice sent','Claim submitted to SAIL','Claim received'];
+const DEFAULT_NOTIFY = {budgetWa:[], claimsWa:[], pendingDays:7, claimDays:30, warnDays:7};
+const DEFAULT_CFG = {rate:100, giftCapPct:25, lapse:false, releases:{}, categories:DEFAULT_CATS, notify:DEFAULT_NOTIFY};
+const S = {me:null, cfg:{...DEFAULT_CFG}, lifting:{}, acts:[], tab:'dash', fy:null, asOf:null, loaded:{cfg:false,lift:false,act:false}, readonly:false, actFilter:{prod:'',status:'',q:''}};
+
+/* ---------- date / FY helpers ---------- */
+const pad = n => String(n).padStart(2,'0');
+const todayStr = () => {const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;};
+const fyOfDate = d => d.getMonth()>=3 ? d.getFullYear() : d.getFullYear()-1;
+const fyLabel = fy => `FY ${fy}-${String(fy+1).slice(2)}`;
+const qLabel = (fy,q) => `Q${q} FY${String(fy).slice(2)}-${String(fy+1).slice(2)}`;
+function fyMonths(fy){return MON.map((m,i)=>{const y=i<9?fy:fy+1;const mm=((i+3)%12)+1;return {key:`${y}-${pad(mm)}`,label:`${m} ${String(y).slice(2)}`,q:Math.floor(i/3)+1,y,mm};});}
+function qStart(fy,q){const sm=[4,7,10,1][q-1];return new Date(q===4?fy+1:fy,sm-1,1);}
+function nextQ(fy,q){return q===4?{fy:fy+1,q:1}:{fy,q:q+1};}
+function qEnd(fy,q){const n=nextQ(fy,q);return new Date(qStart(n.fy,n.q).getTime()-1);}
+function monthStart(key){const [y,m]=key.split('-').map(Number);return new Date(y,m-1,1);}
+const fmtD = d => d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'2-digit'});
+const fmtMY = d => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+' '+String(d.getFullYear()).slice(2);
+const asOfDate = () => {const [y,m,d]=S.asOf.split('-').map(Number);return new Date(y,m-1,d,23,59,59);};
+
+/* ---------- number helpers ---------- */
+const inr = v => '₹' + Math.round(v||0).toLocaleString('en-IN');
+const tn = v => (Math.round((v||0)*1000)/1000).toLocaleString('en-IN',{maximumFractionDigits:3});
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const isGift = cat => /^gift/i.test(cat||'');
+
+/* ---------- budget engine ---------- */
+function tonnes(prod,key){return +(S.lifting[`${prod}_${key}`]?.tonnes||0);}
+function releaseMode(key){return S.cfg.releases?.[key]||'normal';}
+/* A pot = one product's accrual for one quarter. Usable in the following quarter only. */
+function pot(prod,fy,q){
+  const months = fyMonths(fy).filter(m=>m.q===q);
+  const nq = nextQ(fy,q);
+  const useFrom = qStart(nq.fy,nq.q), useTo = qEnd(nq.fy,nq.q);
+  const now = asOfDate();
+  let t=0, accrued=0, released=0, held=0, early=false;
+  months.forEach(m=>{
+    const tt=tonnes(prod,m.key), amt=tt*S.cfg.rate, mode=releaseMode(m.key);
+    t+=tt; accrued+=amt;
+    if(mode==='hold'){held+=amt;return;}
+    const from = mode==='early' ? monthStart(m.key) : useFrom;
+    if(mode==='early' && amt>0) early=true;
+    if(now>=from) released+=amt;
+  });
+  const expired = S.cfg.lapse && now>useTo;
+  const id = `${prod}_${fy}_Q${q}`;
+  const acts = S.acts.filter(a=>a.pot===id);
+  let pending=0, approved=0, spent=0, gift=0;
+  acts.forEach(a=>{
+    if(a.status==='Sent to SAIL'){pending+=+a.estAmount||0; if(isGift(a.category)) gift+=+a.estAmount||0;}
+    else if(a.status==='Approved by SAIL'){const v=+(a.approvedAmount||a.estAmount)||0;approved+=v;if(isGift(a.category)) gift+=v;}
+    else if(a.status==='Completed'){const v=+(a.actualAmount||a.approvedAmount||a.estAmount)||0;spent+=v;if(isGift(a.category)) gift+=v;}
+  });
+  const used = pending+approved+spent;
+  const giftCap = accrued*S.cfg.giftCapPct/100;
+  const balance = expired ? 0 : released-used;
+  const lapsed = expired ? Math.max(0, released-used) : 0;
+  let status, cls;
+  if(now<qStart(fy,q)){status='Not started';cls='c-mute';}
+  else if(now<=qEnd(fy,q)){status = early&&released>0 ? 'Accruing · part released' : `Accruing · locked till ${fmtD(useFrom)}`; cls=early&&released>0?'c-info':'c-warn';}
+  else if(expired){status='Usage window closed';cls='c-mute';}
+  else if(now>=useFrom){status = held>0?'Usable · part on hold':'Usable now'; cls='c-ok';}
+  if(held>0 && now>qEnd(fy,q) && !expired && released===0){status='On hold (SAIL)';cls='c-bad';}
+  return {id,prod,fy,q,t,accrued,released,held,useFrom,useTo,expired,pending,approved,spent,used,gift,giftCap,balance,lapsed,status,cls,acts};
+}
+function potsFor(prod,fy){return [1,2,3,4].map(q=>pot(prod,fy,q));}
+function potFromId(id){const [prod,fy,q]=id.split('_');return pot(prod,+fy,+q.slice(1));}
+
+/* ---------- alerts (same rules the email task uses) ---------- */
+function waText(team,list){
+  const lines=list.filter(x=>x.team===team).map((x,i)=>`${i+1}. ${x.t}`);
+  return `*SAIL Branding – ${team} team update (${fmtD(asOfDate())})*\n\n${lines.join('\n')}\n\nTracker: ${location.origin}`;
+}
+function waButtons(team,list){
+  const N={...DEFAULT_NOTIFY,...(S.cfg.notify||{})};
+  const nums=(team==='Claims'?N.claimsWa:N.budgetWa)||[];
+  if(!list.some(x=>x.team===team)) return '';
+  if(!nums.length) return `<span class="hint">${team}: add WhatsApp numbers in Settings to send</span>`;
+  const txt=encodeURIComponent(waText(team,list));
+  return nums.map(n=>`<a class="btn sm wa" href="https://wa.me/${esc(n.num)}?text=${txt}" target="_blank" rel="noopener">WhatsApp ${team} · ${esc(n.name||n.num)}</a>`).join(' ');
+}
+function daysBetween(a,b){return Math.round((b-a)/86400000);}
+function alerts(){
+  const N={...DEFAULT_NOTIFY,...(S.cfg.notify||{})}, now=asOfDate(), out=[];
+  const pname=p=>`${PRODS.find(x=>x.k===p.prod).name} ${qLabel(p.fy,p.q)}`;
+  PRODS.forEach(P=>[S.fy-1,S.fy].forEach(fy=>[1,2,3,4].forEach(q=>{
+    const p=pot(P.k,fy,q); if(!p.accrued) return;
+    const toStart=daysBetween(now,p.useFrom), toEnd=daysBetween(now,p.useTo);
+    if(now>=p.useFrom && toStart>=-7 && !p.expired) out.push({team:'Budget',sev:'c-ok',t:`${pname(p)} budget is now usable — ${inr(Math.max(0,p.balance))} available until ${fmtD(p.useTo)}.`});
+    else if(now<p.useFrom && toStart<=N.warnDays && p.accrued>p.released) out.push({team:'Budget',sev:'c-info',t:`${pname(p)} budget of ${inr(p.accrued-p.released)} unlocks on ${fmtD(p.useFrom)} (in ${toStart} days) — plan activities and send them to SAIL.`});
+    if(now>=p.useFrom && !p.expired && p.balance>0 && toEnd<=N.warnDays && toEnd>=0) out.push({team:'Budget',sev:'c-warn',t:`${pname(p)}: ${inr(p.balance)} still unused and its spending quarter ends ${fmtD(p.useTo)} (${toEnd} days).`});
+    if(p.balance<0 && !p.expired) out.push({team:'Budget',sev:'c-bad',t:`${pname(p)} is over budget by ${inr(-p.balance)}.`});
+    if(p.giftCap>0 && p.gift>=0.8*p.giftCap && !p.expired) out.push({team:'Budget',sev:p.gift>p.giftCap?'c-bad':'c-warn',t:`${pname(p)}: gifting at ${inr(p.gift)} of ${inr(p.giftCap)} cap (${Math.round(p.gift/p.giftCap*100)}%).`});
+  })));
+  S.acts.forEach(a=>{
+    if(a.status==='Sent to SAIL' && a.submittedOn){const d=daysBetween(new Date(a.submittedOn),now);if(d>=N.pendingDays)out.push({team:'Budget',sev:'c-warn',t:`“${a.title}” has been waiting for SAIL approval for ${d} days${a.sailRef?' (ref '+a.sailRef+')':''}.`,id:a.id});}
+    if(a.status==='Completed' && a.claimStatus!=='Claim received'){
+      if(a.claimStatus==='Claim submitted to SAIL'){const d=a.claimSubmittedOn?daysBetween(new Date(a.claimSubmittedOn),now):null;if(d===null||d>=N.claimDays)out.push({team:'Claims',sev:'c-warn',t:`Claim for “${a.title}” (${inr(a.actualAmount)}) submitted ${d===null?'— date not entered':d+' days ago'}, not yet received.`,id:a.id});}
+      else out.push({team:'Claims',sev:'c-bad',t:`Raise claim for “${a.title}” — invoice ${a.invoiceNo||'(no.)'} ${inr(a.actualAmount)}; status: ${a.claimStatus||'Not claimed'}.`,id:a.id});
+    }
+  });
+  return out;
+}
+
+/* ---------- db ---------- */
+let toastT;
+function toast(msg){clearTimeout(toastT);let el=document.querySelector('.toast');if(!el){el=document.createElement('div');el.className='toast';document.body.appendChild(el);}el.textContent=msg;toastT=setTimeout(()=>el.remove(),2600);}
+async function api(path,body){
+  const r=await fetch(path,body===undefined?{credentials:'same-origin'}:{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  let j={};try{j=await r.json();}catch(_){}
+  if(r.status===401&&path!=='/api/auth'){S.me=null;showLogin('Your session ended — please sign in again.');throw new Error('Signed out');}
+  if(!r.ok) throw new Error(j.error||('Request failed ('+r.status+')'));
+  return j;
+}
+function handleWriteErr(e){ if(e?.message!=='Signed out') toast(e?.message||'Could not save'); load(); }
+async function saveCfg(patch){
+  S.cfg={...S.cfg,...patch};
+  try{const j=await api('/api/save',{action:'config',config:S.cfg});S.cfg={...DEFAULT_CFG,...j.config};toast('Settings saved');}catch(e){handleWriteErr(e);}
+  render();
+}
+async function load(){
+  try{
+    const d=await api('/api/data');
+    S.me=d.me; S.readonly=!(d.me.role==='admin'||d.me.role==='editor');
+    S.cfg={...DEFAULT_CFG,...d.config}; if(!S.cfg.categories?.length)S.cfg.categories=DEFAULT_CATS;
+    S.lifting=d.lifting; S.acts=d.activities; S.err=null;
+    S.loaded={cfg:true,lift:true,act:true};
+  }catch(e){ if(e.message!=='Signed out') S.err='Could not load data: '+e.message; }
+  if(S.me){ showApp(); if(!document.getElementById('mbg') && !(document.activeElement&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)&&document.activeElement.closest('#main'))) render(); }
+}
+function showLogin(msg){
+  document.getElementById('app').style.display='none';
+  const L=document.getElementById('login'); L.style.display='flex';
+  document.getElementById('lErr').textContent=msg||'';
+}
+function showApp(){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='';
+  document.getElementById('who').textContent=`${S.me.name||S.me.email} · ${S.me.role}`;
+  document.querySelectorAll('#tabs button[data-t="set"]').forEach(b=>b.textContent=S.me.role==='admin'?'Settings & users':'Settings & rules');
+}
+async function init(){
+  const now=new Date(); S.fy=fyOfDate(now); S.asOf=todayStr();
+  setupHeader();
+  document.getElementById('lForm').onsubmit=async e=>{
+    e.preventDefault();
+    const btn=document.getElementById('lBtn');btn.disabled=true;
+    try{const j=await api('/api/auth',{action:'login',email:document.getElementById('lEmail').value,password:document.getElementById('lPw').value});S.me=j.user;document.getElementById('lPw').value='';await load();}
+    catch(err){document.getElementById('lErr').textContent=err.message;}
+    finally{btn.disabled=false;}
+  };
+  document.getElementById('logout').onclick=async()=>{try{await api('/api/auth',{action:'logout'});}catch(_){}S.me=null;showLogin('');};
+  try{
+    const j=await api('/api/auth',{action:'me'});
+    if(!j.user){showLogin(j.setup?'No accounts yet. Set ADMIN_EMAIL and ADMIN_PASSWORD in Vercel, redeploy, then sign in with them.':'');return;}
+    S.me=j.user; await load();
+  }catch(e){showLogin('Could not reach the server: '+e.message);}
+  setInterval(()=>{if(S.me&&document.visibilityState==='visible')load();},30000);
+}
+function setupHeader(){
+  const sel=document.getElementById('fySel');
+  const cur=fyOfDate(new Date());
+  for(let y=cur+1;y>=2025;y--){const o=document.createElement('option');o.value=y;o.textContent=fyLabel(y);if(y===cur)o.selected=true;sel.appendChild(o);}
+  sel.onchange=()=>{S.fy=+sel.value;render();};
+  const a=document.getElementById('asOf');a.value=S.asOf;a.onchange=()=>{S.asOf=a.value||todayStr();a.value=S.asOf;render();};
+  document.getElementById('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.tab=b.dataset.t;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));render();};
+}
+
+/* ---------- render ---------- */
+function render(){
+  const m=document.getElementById('main');
+  let pre='';
+  if(S.slow) pre+='<div class="banner warn">The data store is taking longer than usual to answer — figures may be incomplete or out of date.</div>';
+  if(S.err) pre+=`<div class="banner bad">${esc(S.err)}</div>`;
+  if(S.readonly) pre+='<div class="banner warn">View-only access: you can see the figures but not change them. Ask an admin for editor access.</div>';
+  if(S.asOf!==todayStr()) pre+=`<div class="banner warn">Showing the budget position as of <b>${fmtD(asOfDate())}</b> (not today). Clear the “As of” date to return to today.</div>`;
+  const body = {dash:renderDash,stmt:renderStmt,lift:renderLift,act:renderActs,set:renderSettings}[S.tab]();
+  m.innerHTML=pre+body;
+  bind();
+}
+
+function prodSummary(p){
+  const pots=potsFor(p.k,S.fy);
+  // pots usable as of date may include previous FY Q4
+  const live=[...potsFor(p.k,S.fy-1),...pots].filter(x=>!x.expired && x.released>0);
+  const t=pots.reduce((s,x)=>s+x.t,0), acc=pots.reduce((s,x)=>s+x.accrued,0);
+  const avail=live.reduce((s,x)=>s+Math.max(0,x.balance),0);
+  const pending=pots.reduce((s,x)=>s+x.pending,0)+ (potsFor(p.k,S.fy-1)[3].pending);
+  const used=pots.reduce((s,x)=>s+x.approved+x.spent,0);
+  const locked=pots.reduce((s,x)=>s+Math.max(0,x.accrued-x.released-x.held),0);
+  const giftUsed=live.reduce((s,x)=>s+x.gift,0), giftCap=live.reduce((s,x)=>s+x.giftCap,0);
+  const lapsed=[...potsFor(p.k,S.fy-1),...pots].reduce((s,x)=>s+x.lapsed,0);
+  return {pots,t,acc,avail,pending,used,locked,giftUsed,giftCap,lapsed,live};
+}
+
+function renderDash(){
+  if(!S.loaded.lift) return '<div class="empty">Loading lifting data…</div>';
+  const sums=PRODS.map(p=>({p,...prodSummary(p)}));
+  const cards=sums.map(({p,t,acc,avail,pending,used,locked,giftUsed,giftCap,lapsed})=>{
+    const gp=giftCap?giftUsed/giftCap*100:0;
+    const gcol=gp>=100?'var(--bad)':gp>=80?'var(--warn)':'var(--ok)';
+    return `<div class="card"><h2><span class="dot" style="background:${p.color}"></span>${p.name} <span class="hint" style="font-weight:400">· ${fyLabel(S.fy)}</span></h2>
+      <div class="kpis">
+        <div class="kpi"><div class="l">Tonnes lifted</div><div class="v">${tn(t)} t</div><div class="s">× ₹${S.cfg.rate}/t</div></div>
+        <div class="kpi"><div class="l">Budget accrued</div><div class="v">${inr(acc)}</div><div class="s">${inr(locked)} still locked</div></div>
+        <div class="kpi" style="background:var(--okbg)"><div class="l">Available to use now</div><div class="v" style="color:var(--ok)">${inr(avail)}</div><div class="s">released, not yet committed</div></div>
+        <div class="kpi"><div class="l">Pending SAIL approval</div><div class="v">${inr(pending)}</div><div class="s">sent, awaiting reply</div></div>
+        <div class="kpi"><div class="l">Approved / spent</div><div class="v">${inr(used)}</div><div class="s">${lapsed>0?`<span style="color:var(--bad)">${inr(lapsed)} lapsed unused</span>`:'nothing lapsed'}</div></div>
+        <div class="kpi"><div class="l">Gifting in usable budget</div><div class="v">${inr(giftUsed)}</div><div class="s">cap ${inr(giftCap)} (${S.cfg.giftCapPct}%)</div><div class="meter"><i style="width:${Math.min(100,gp)}%;background:${gcol}"></i></div></div>
+      </div></div>`;}).join('');
+
+  const qt=sums.map(({p,pots})=>{
+    const rows=pots.map(x=>`<tr>
+      <td><b>Q${x.q}</b> <span class="hint">${MON.slice((x.q-1)*3,x.q*3).join('–')}</span></td>
+      <td class="n">${tn(x.t)}</td><td class="n">${inr(x.accrued)}</td>
+      <td>${fmtMY(x.useFrom)} – ${fmtMY(x.useTo)}</td>
+      <td><span class="chip ${x.cls}">${x.status||'—'}</span></td>
+      <td class="n">${inr(x.released)}</td>
+      <td class="n">${inr(x.pending)}</td>
+      <td class="n">${inr(x.approved+x.spent)}</td>
+      <td class="n"><b>${x.expired?'<span class="hint">closed</span>':x.balance<0?`<span style="color:var(--bad)">−${inr(-x.balance)} excess</span>`:inr(x.balance)}</b></td>
+      <td class="n">${x.accrued?`<span style="color:${x.gift>x.giftCap?'var(--bad)':'inherit'}">${inr(x.gift)}</span> <span class="hint">/ ${inr(x.giftCap)}</span>`:'—'}</td>
+    </tr>`).join('');
+    const T=k=>pots.reduce((s,x)=>s+x[k],0);
+    return `<div class="card"><h2><span class="dot" style="background:${p.color}"></span>${p.name} — quarter-wise budget</h2><div class="tw"><table>
+      <thead><tr><th>Lifting quarter</th><th class="n">Tonnes</th><th class="n">Accrued</th><th>Use window</th><th>Status</th><th class="n">Released</th><th class="n">Pending SAIL</th><th class="n">Approved / spent</th><th class="n">Balance</th><th class="n">Gifting / cap</th></tr></thead>
+      <tbody>${rows}<tr class="tot"><td>Total</td><td class="n">${tn(T('t'))}</td><td class="n">${inr(T('accrued'))}</td><td></td><td></td><td class="n">${inr(T('released'))}</td><td class="n">${inr(T('pending'))}</td><td class="n">${inr(T('approved')+T('spent'))}</td><td class="n">${inr(T('balance'))}</td><td></td></tr></tbody></table></div></div>`;
+  }).join('');
+
+  const upcoming = S.acts.filter(a=>a.status==='Sent to SAIL').sort((a,b)=>(a.submittedOn||'').localeCompare(b.submittedOn||''));
+  const pend = upcoming.length?`<table><thead><tr><th>Activity</th><th>Product</th><th>Budget from</th><th>Sent on</th><th class="n">Amount</th></tr></thead><tbody>${upcoming.slice(0,8).map(a=>{const P=PRODS.find(p=>p.k===a.prod);const[,fy,q]=a.pot.split('_');return `<tr><td>${esc(a.title)}${isGift(a.category)?' <span class="chip c-info">Gifting</span>':''}</td><td class="${P.cls}">${P.name}</td><td>${qLabel(+fy,+q.slice(1))}</td><td>${a.submittedOn?fmtD(new Date(a.submittedOn)):'—'}</td><td class="n">${inr(a.estAmount)}</td></tr>`;}).join('')}</tbody></table>`:'<div class="empty">Nothing waiting on SAIL right now.</div>';
+
+  const al=alerts();
+  const alHtml=`<div class="card" style="margin-bottom:14px"><h2>Alerts <span class="hint" style="font-weight:400">· what the budget and claims teams are told</span></h2>${al.length?`<table><tbody>${al.map(x=>`<tr><td style="width:90px"><span class="chip ${x.team==='Claims'?'c-info':'c-mute'}">${x.team} team</span></td><td><span class="chip ${x.sev}" style="margin-right:6px">●</span>${esc(x.t)}</td><td style="width:70px">${x.id?`<button class="btn sec sm" data-edit="${x.id}">Open</button>`:''}</td></tr>`).join('')}</tbody></table>`:'<div class="empty" style="padding:12px">No alerts right now.</div>'}${al.length?`<div class="toolbar" style="margin:12px 0 0;flex-wrap:wrap">${waButtons('Budget',al)} ${waButtons('Claims',al)}</div>`:''}</div>`;
+  return alHtml+`<div class="grid g2">${cards}</div>
+  <div class="card" style="margin-top:14px"><h2>Monthly lifting — ${fyLabel(S.fy)}</h2>${chart()}</div>
+  <div class="grid" style="margin-top:14px">${qt}</div>
+  <div class="card" style="margin-top:14px"><h2>Waiting for SAIL approval</h2><div class="tw">${pend}</div></div>`;
+}
+
+function chart(){
+  const ms=fyMonths(S.fy);
+  const vals=ms.map(m=>[tonnes('HR',m.key),tonnes('STR',m.key)]);
+  const max=Math.max(1,...vals.flat());
+  const W=1000,H=240,pl=50,pb=34,pt=10,cw=(W-pl-10)/12,bw=cw*0.32;
+  const nice=(()=>{const p=Math.pow(10,Math.floor(Math.log10(max)));const s=[1,2,2.5,5,10].map(x=>x*p).find(x=>x*4>=max)||p*10;return s;})();
+  const top=nice*4, y=v=>pt+(H-pt-pb)*(1-v/top);
+  let g='';
+  for(let i=0;i<=4;i++){const v=nice*i;g+=`<line x1="${pl}" x2="${W-10}" y1="${y(v)}" y2="${y(v)}" stroke="#e6e9ef"/><text x="${pl-6}" y="${y(v)+4}" font-size="11" text-anchor="end" fill="#5b6475">${v.toLocaleString('en-IN')}</text>`;}
+  ms.forEach((m,i)=>{const x=pl+cw*i+cw/2;
+    [[vals[i][0],'#01578C',-bw-1],[vals[i][1],'#C7701E',1]].forEach(([v,c,o])=>{if(v>0)g+=`<rect x="${x+o}" y="${y(v)}" width="${bw}" height="${H-pb-y(v)}" rx="2" fill="${c}"><title>${m.label}: ${tn(v)} t</title></rect>`;});
+    g+=`<text x="${x}" y="${H-pb+16}" font-size="11.5" text-anchor="middle" fill="#5b6475">${m.label}</text>`;
+    if(i%3===0&&i>0)g+=`<line x1="${pl+cw*i}" x2="${pl+cw*i}" y1="${pt}" y2="${H-pb}" stroke="#c9cfd9" stroke-dasharray="3 3"/>`;
+  });
+  return `<div class="legend" style="margin-bottom:6px"><span><i class="dot" style="background:#01578C"></i>HR Coil (t)</span><span><i class="dot" style="background:#C7701E"></i>Structural (t)</span><span>Dashed lines = quarter ends</span></div><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Monthly tonnes lifted">${g}</svg>`;
+}
+
+function renderLift(){
+  const ms=fyMonths(S.fy), ro=S.readonly?'disabled':'';
+  const rows=ms.map(m=>{
+    const h=tonnes('HR',m.key), s=tonnes('STR',m.key), mode=releaseMode(m.key);
+    return `<tr><td><b>${m.label}</b></td><td>Q${m.q}</td>
+      <td><input class="t" type="number" min="0" step="0.001" data-lift="HR_${m.key}" value="${h||''}" placeholder="0" ${ro}></td><td class="n">${inr(h*S.cfg.rate)}</td>
+      <td><input class="t" type="number" min="0" step="0.001" data-lift="STR_${m.key}" value="${s||''}" placeholder="0" ${ro}></td><td class="n">${inr(s*S.cfg.rate)}</td>
+      <td><select data-rel="${m.key}" ${ro} style="max-width:230px">
+        <option value="normal" ${mode==='normal'?'selected':''}>Normal — usable next quarter</option>
+        <option value="early" ${mode==='early'?'selected':''}>Special release — usable now</option>
+        <option value="hold" ${mode==='hold'?'selected':''}>On hold — not released by SAIL</option>
+      </select></td></tr>`;}).join('');
+  const T=p=>ms.reduce((a,m)=>a+tonnes(p,m.key),0);
+  return `<div class="card"><h2>Monthly lifting — ${fyLabel(S.fy)}</h2>
+    <p class="hint" style="margin-top:-4px">Enter tonnes lifted from SAIL each month. Budget = tonnes × ₹${S.cfg.rate}. Changes save automatically when you leave a cell. Use <b>SAIL release</b> only when SAIL makes an exception (e.g. releasing a month early) or holds a release.</p>
+    <div class="tw"><table><thead><tr><th>Month</th><th>Qtr</th><th>HR Coil (t)</th><th class="n">HR budget</th><th>Structural (t)</th><th class="n">Structural budget</th><th>SAIL release</th></tr></thead>
+    <tbody>${rows}<tr class="tot"><td>Total</td><td></td><td class="n">${tn(T('HR'))} t</td><td class="n">${inr(T('HR')*S.cfg.rate)}</td><td class="n">${tn(T('STR'))} t</td><td class="n">${inr(T('STR')*S.cfg.rate)}</td><td></td></tr></tbody></table></div></div>`;
+}
+
+function renderActs(){
+  const f=S.actFilter;
+  let list=S.acts.filter(a=>{const[,fy]=a.pot.split('_');return +fy===S.fy || (+fy===S.fy-1 && a.pot.endsWith('Q4'));});
+  if(f.prod) list=list.filter(a=>a.prod===f.prod);
+  if(f.status) list=list.filter(a=>a.status===f.status);
+  if(f.q){const q=f.q.toLowerCase();list=list.filter(a=>[a.title,a.vendor,a.sailRef,a.category].join(' ').toLowerCase().includes(q));}
+  list.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
+  const chip=s=>({'Draft':'c-mute','Sent to SAIL':'c-warn','Approved by SAIL':'c-info','Rejected':'c-bad','Completed':'c-ok'})[s];
+  const rows=list.map(a=>{const P=PRODS.find(p=>p.k===a.prod);const[,fy,q]=a.pot.split('_');
+    const amt=a.status==='Completed'?(a.actualAmount||a.approvedAmount||a.estAmount):a.status==='Approved by SAIL'?(a.approvedAmount||a.estAmount):a.estAmount;
+    return `<tr><td><b>${esc(a.title)}</b><div class="hint">${esc(a.category)}${a.vendor?' · '+esc(a.vendor):''}</div></td>
+      <td class="${P.cls}">${P.name}</td><td>${qLabel(+fy,+q.slice(1))}</td>
+      <td>${a.plannedOn?fmtD(new Date(a.plannedOn)):'—'}</td>
+      <td><span class="chip ${chip(a.status)}">${a.status}</span>${a.sailRef?`<div class="hint">Ref ${esc(a.sailRef)}</div>`:''}</td>
+      <td class="n">${inr(amt)}</td>
+      <td><button class="btn sec sm" data-edit="${a.id}">${S.readonly?'View':'Open'}</button></td></tr>`;}).join('');
+  return `<div class="card"><div class="toolbar">
+      <select id="fProd" style="width:auto"><option value="">All products</option>${PRODS.map(p=>`<option value="${p.k}" ${f.prod===p.k?'selected':''}>${p.name}</option>`).join('')}</select>
+      <select id="fStatus" style="width:auto"><option value="">All statuses</option>${STATUSES.map(s=>`<option ${f.status===s?'selected':''}>${s}</option>`).join('')}</select>
+      <input id="fQ" placeholder="Search title, vendor, SAIL ref…" value="${esc(f.q)}" style="width:240px;border:1px solid #cdd3dd;border-radius:6px;padding:6px 8px">
+      <span class="sp"></span>
+      <button class="btn sec" id="copyCsv">Copy as CSV</button>
+      <button class="btn" id="newAct" ${S.readonly?'disabled':''}>+ New activity</button></div>
+    <div class="tw">${list.length?`<table><thead><tr><th>Activity</th><th>Product</th><th>Budget from</th><th>Planned</th><th>Status</th><th class="n">Amount</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty">No branding activities for this year yet. Add one with “+ New activity”.</div>'}</div></div>`;
+}
+
+function renderSettings(){
+  const c=S.cfg, admin=S.me?.role==='admin', ro=admin?'':'disabled', N={...DEFAULT_NOTIFY,...(c.notify||{})};
+  return `<div class="grid g2">
+  <div class="card"><h2>Budget settings ${admin?'':'<span class="hint" style="font-weight:400">· only an admin can change these</span>'}</h2>
+    <div class="form" style="grid-template-columns:1fr 1fr">
+      <div class="f"><label>Branding rate (₹ per tonne)</label><input type="number" id="sRate" min="0" value="${c.rate}" ${ro}></div>
+      <div class="f"><label>Max gifting share (%)</label><input type="number" id="sGift" min="0" max="100" value="${c.giftCapPct}" ${ro}></div>
+      <div class="f w3"><label><input type="checkbox" id="sLapse" ${c.lapse?'checked':''} ${ro} style="width:auto;margin-right:6px">Unused budget lapses at the end of its usage quarter</label></div>
+      <div class="f w3"><label>Activity categories (one per line — names starting with “Gifting” count towards the gifting cap)</label><textarea id="sCats" rows="9" ${ro}>${esc(c.categories.join('\n'))}</textarea></div>
+    </div>
+    ${admin?'<div style="margin-top:12px"><button class="btn" id="saveSet">Save settings</button></div>':''}
+  </div>
+  <div class="card"><h2>Alerts &amp; WhatsApp</h2>
+    <p class="hint" style="margin-top:-4px">The Dashboard alerts panel shows a green button per person below; it opens WhatsApp with that team's update ready to send. Numbers without a country code are taken as India (+91).</p>
+    <div class="form" style="grid-template-columns:1fr 1fr">
+      <div class="f"><label>Budget team WhatsApp (Name, number — one per line)</label><textarea id="nBudWa" rows="3" ${ro} placeholder="Ravi, 9876543210">${esc((N.budgetWa||[]).map(x=>(x.name?x.name+', ':'')+x.num).join('\n'))}</textarea></div>
+      <div class="f"><label>Claims team WhatsApp (Name, number — one per line)</label><textarea id="nClmWa" rows="3" ${ro} placeholder="Accounts, 9876543210">${esc((N.claimsWa||[]).map(x=>(x.name?x.name+', ':'')+x.num).join('\n'))}</textarea></div>
+      <div class="f"><label>Remind when SAIL approval pending for (days)</label><input type="number" id="nPend" min="1" value="${N.pendingDays}" ${ro}></div>
+      <div class="f"><label>Remind when claim not received after (days)</label><input type="number" id="nClaimD" min="1" value="${N.claimDays}" ${ro}></div>
+      <div class="f"><label>Warn before unlock / quarter end (days)</label><input type="number" id="nWarn" min="1" value="${N.warnDays}" ${ro}></div>
+    </div>
+    ${admin?'<div style="margin-top:12px"><button class="btn" id="saveNotify">Save alert settings</button></div>':''}
+  </div>
+  ${admin?`<div class="card" style="grid-column:1/-1"><h2>Users</h2>
+    <div id="usersBox"><div class="hint">Loading users…</div></div>
+    <h3 style="margin-top:16px">Add a user</h3>
+    <div class="form" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="f"><label>Name</label><input id="uName"></div>
+      <div class="f"><label>Email</label><input id="uEmail" type="email" placeholder="name@bharatsteels.in"></div>
+      <div class="f"><label>Role</label><select id="uRole"><option value="editor">Editor — enters data</option><option value="viewer">Viewer — read only</option><option value="admin">Admin — settings &amp; users</option></select></div>
+      <div class="f"><label>Starting password</label><input id="uPw" type="text" placeholder="min 6 characters"></div>
+    </div>
+    <div style="margin-top:10px"><button class="btn" id="uAdd">Add user</button></div>
+  </div>`:''}
+  <div class="card"><h2>My account</h2>
+    <p class="hint" style="margin-top:-4px">Signed in as <b>${esc(S.me?.email||'')}</b> (${esc(S.me?.role||'')}).</p>
+    <div class="form" style="grid-template-columns:1fr 1fr">
+      <div class="f"><label>Current password</label><input id="pCur" type="password" autocomplete="current-password"></div>
+      <div class="f"><label>New password</label><input id="pNew" type="password" autocomplete="new-password"></div>
+    </div>
+    <div style="margin-top:10px"><button class="btn sec" id="pSave">Change password</button></div>
+  </div>
+  <div class="card"><h2>How the budget rules work</h2><ol class="rules">
+    <li><b>Two separate budgets.</b> HR Coil and Structural each earn their own budget and every activity is charged to one of them.</li>
+    <li><b>Budget = tonnes lifted × ₹${c.rate}.</b> It builds up month by month through the quarter.</li>
+    <li><b>Use only after the quarter.</b> A quarter's budget stays locked until the quarter ends and can be used only in the following quarter (Q1 Apr–Jun → used Jul–Sep; Q4 Jan–Mar → used Apr–Jun of the next FY).${c.lapse?' Anything not used in that quarter lapses.':''}</li>
+    <li><b>SAIL exceptions.</b> On the Lifting entry tab a month can be marked <i>Special release</i> (usable straight away, as SAIL allowed for April) or <i>On hold</i> (SAIL hasn't released it).</li>
+    <li><b>SAIL approval for every activity.</b> Each activity moves Draft → Sent to SAIL → Approved by SAIL → Completed. Money can be used only once it is released. Going over a quarter's balance is allowed with a warning and shows as Excess in red.</li>
+    <li><b>Gifting cap.</b> T-shirts, stationery and other gifting can't exceed ${c.giftCapPct}% of a quarter's budget. Sending or approving an activity that would cross it is blocked.</li>
+  </ol></div></div>`;
+}
+async function loadUsers(){
+  const box=document.getElementById('usersBox'); if(!box) return;
+  try{
+    const {users}=await api('/api/users',{action:'list'});
+    box.innerHTML=`<div class="tw"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th></th></tr></thead><tbody>${users.map(u=>`<tr data-u="${u.id}">
+      <td><input class="uN" value="${esc(u.name)}" style="min-width:160px"></td><td>${esc(u.email)}</td>
+      <td><select class="uR" style="min-width:110px">${['admin','editor','viewer'].map(r=>`<option ${r===u.role?'selected':''}>${r}</option>`).join('')}</select></td>
+      <td><input type="checkbox" class="uA" ${u.active?'checked':''} style="width:auto"></td>
+      <td style="white-space:nowrap"><button class="btn sec sm uS">Save</button> <button class="btn sec sm uP">Reset password</button> ${u.id===S.me.id?'':'<button class="btn danger sm uD">Delete</button>'}</td></tr>`).join('')}</tbody></table></div>`;
+    box.querySelectorAll('tr[data-u]').forEach(tr=>{
+      const id=+tr.dataset.u, q=s=>tr.querySelector(s);
+      q('.uS').onclick=async()=>{try{await api('/api/users',{action:'update',id,name:q('.uN').value,role:q('.uR').value,active:q('.uA').checked});toast('User updated');loadUsers();}catch(e){toast(e.message);}};
+      q('.uP').onclick=()=>{const cell=q('.uP').parentElement;cell.innerHTML=`<input class="uNP" placeholder="new password" style="width:140px"> <button class="btn sm uNPs">Set</button>`;cell.querySelector('.uNPs').onclick=async()=>{try{await api('/api/users',{action:'reset_password',id,password:cell.querySelector('.uNP').value});toast('Password reset — tell the user the new one');loadUsers();}catch(e){toast(e.message);}};};
+      if(q('.uD')) q('.uD').onclick=async()=>{const b=q('.uD');if(b.dataset.c!=='1'){b.dataset.c='1';b.textContent='Click again';return;}try{await api('/api/users',{action:'delete',id});toast('User deleted');loadUsers();}catch(e){toast(e.message);}};
+    });
+  }catch(e){box.innerHTML=`<div class="err">${esc(e.message)}</div>`;}
+}
+
+/* ---------- quarter statement (sheet format) ---------- */
+function stmtAmt(a){return +(a.actualAmount??a.approvedAmount??a.estAmount)||0;}
+function renderStmt(){
+  if(!S.loaded.lift) return '<div class="empty">Loading…</div>';
+  const fmt2=v=>(+v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const blocks=[];
+  PRODS.forEach(P=>{[1,2,3,4].forEach(q=>{
+    const p=pot(P.k,S.fy,q);
+    const months=fyMonths(S.fy).filter(m=>m.q===q);
+    const ex=S.acts.filter(a=>a.pot===p.id).sort((a,b)=>(a.invoiceDate||a.plannedOn||'').localeCompare(b.invoiceDate||b.plannedOn||''));
+    if(!p.accrued && !ex.length) return;
+    const counted=ex.filter(a=>!['Draft','Rejected'].includes(a.status));
+    const spent=counted.reduce((s,a)=>s+stmtAmt(a),0);
+    const n=Math.max(months.length,ex.length);
+    let rows='';
+    for(let i=0;i<n;i++){
+      const m=months[i], a=ex[i];
+      const t=m?tonnes(P.k,m.key):null;
+      const dim=a&&['Draft','Rejected'].includes(a.status);
+      const d=a?(a.invoiceDate||a.plannedOn):'';
+      rows+=`<tr${dim?' class="dim"':''}>
+        <td>${m?MON[(q-1)*3+i]:''}</td><td class="n">${m?(t?fmt2(t):''):''}</td><td class="n">${m?(t?fmt2(t*S.cfg.rate):''):''}</td>
+        <td>${a&&d?fmtD(new Date(d)):''}</td>
+        <td>${a?`<a href="#" data-edit="${a.id}">${esc(a.title)}</a>${isGift(a.category)?' <span class="chip c-info">Gifting</span>':''}`:''}</td>
+        <td>${a?esc(a.invoiceNo||''):''}</td>
+        <td class="n">${a?fmt2(stmtAmt(a)).replace(/\.00$/,''):''}</td>
+        <td>${a?`${esc(a.claimStatus&&a.claimStatus!=='Not claimed'?a.claimStatus:'')}<div class="hint">${a.status}</div>`:''}</td></tr>`;
+    }
+    const diff=p.accrued-spent, nq=nextQ(S.fy,q);
+    blocks.push(`<div class="card stmt" style="margin-bottom:14px"><div class="tw"><table>
+      <thead><tr class="yh"><th colspan="8">${P.name==='HR Coil'?'HR':'Structural'} (${MON[(q-1)*3]} - ${MON[(q-1)*3+2]} Lifting) <span style="font-weight:500">→ spend in ${MON[(nq.q-1)*3]} - ${MON[(nq.q-1)*3+2]}</span> &nbsp;<span class="chip ${p.cls}" style="font-size:11px">${p.status}</span></th></tr>
+      <tr class="yc"><th>Month</th><th class="n">Lifting (t)</th><th class="n">Lifting Budget</th><th>Invoice Date</th><th>Type of Expense</th><th>Invoice Number</th><th class="n">Amount without GST</th><th>Claim Status</th></tr></thead>
+      <tbody>${rows}
+      <tr class="tot"><td>Total Spent</td><td class="n">${fmt2(p.t)}</td><td></td><td></td><td></td><td></td><td class="n">${fmt2(spent).replace(/\.00$/,'')}</td><td></td></tr>
+      <tr class="tot"><td>Lifting Budget</td><td></td><td class="n">${fmt2(p.accrued)}</td><td></td><td class="hint" style="font-weight:400">Gifting ${inr(p.gift)} of ${inr(p.giftCap)} cap (${S.cfg.giftCapPct}%)</td><td></td><td class="n">${fmt2(p.accrued).replace(/\.00$/,'')}</td><td></td></tr>
+      <tr class="tot"><td>${diff<0?'Excess Amount':'Remaining Amount'}</td><td></td><td></td><td></td><td></td><td></td><td class="n ${diff<0?'xs':'rm'}">${fmt2(diff).replace(/\.00$/,'')}</td><td></td></tr>
+      </tbody></table></div></div>`);
+  });});
+  const curQ=(()=>{const m=asOfDate().getMonth()+1;return m>=4?Math.floor((m-4)/3)+1:4;})();
+  const dlBar=`<div class="card toolbar" style="margin-bottom:14px"><b>Download report</b><select id="dlQ" style="width:auto;border:1px solid #cdd3dd;border-radius:6px;padding:6px 8px">${[1,2,3,4].map(q=>`<option value="${q}" ${q===(curQ===1?4:curQ-1)?'selected':''}>Q${q} lifting (${MON[(q-1)*3]}–${MON[(q-1)*3+2]}) · ${fyLabel(S.fy)}</option>`).join('')}<option value="all">All quarters · ${fyLabel(S.fy)}</option></select><button class="btn" id="dlBtn">Download Excel</button><span class="hint">HR Coil and Structural blocks in your sheet format, plus a summary tab</span></div>`;
+  return dlBar+`<div class="toolbar"><span class="hint">Each block is one quarter's lifting and the expenses charged to it. Totals count all activities except Draft and Rejected (drafts show greyed). Click an expense to open it.</span><span class="sp"></span><button class="btn" id="newAct" ${S.readonly?'disabled':''}>+ New activity</button></div>`+
+    (blocks.length?blocks.join(''):'<div class="card empty">No lifting or expenses entered for this year yet. Start on the Lifting entry tab.</div>');
+}
+
+/* ---------- Excel export (sheet format) ---------- */
+let excelLib=null;
+function loadExcel(){
+  if(window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if(excelLib) return excelLib;
+  excelLib=new Promise((res,rej)=>{const s=document.createElement('script');s.src='/exceljs.min.js';s.onload=()=>res(window.ExcelJS);s.onerror=()=>{excelLib=null;rej(new Error('Could not load the Excel library'));};document.head.appendChild(s);});
+  return excelLib;
+}
+function addBlock(ws,r,P,fy,q){
+  const p=pot(P.k,fy,q), months=fyMonths(fy).filter(m=>m.q===q), nq=nextQ(fy,q);
+  const ex=S.acts.filter(a=>a.pot===p.id).sort((a,b)=>(a.invoiceDate||a.plannedOn||'').localeCompare(b.invoiceDate||b.plannedOn||''));
+  const counted=ex.filter(a=>!['Draft','Rejected'].includes(a.status));
+  const spent=counted.reduce((s,a)=>s+stmtAmt(a),0);
+  const YEL={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}};
+  const thin={style:'thin',color:{argb:'FF000000'}}, B={top:thin,left:thin,bottom:thin,right:thin};
+  const box=(row)=>{for(let c=1;c<=8;c++){ws.getCell(row,c).border=B;}};
+  ws.mergeCells(r,1,r,8);
+  const t=ws.getCell(r,1);
+  t.value=`${P.k==='HR'?'HR':'Structural'} (${MON[(q-1)*3]} - ${MON[(q-1)*3+2]} Lifting) — spend in ${MON[(nq.q-1)*3]} - ${MON[(nq.q-1)*3+2]}  [${qLabel(fy,q)}]`;
+  t.font={bold:true,size:13};t.alignment={horizontal:'center'};t.fill=YEL;box(r);r++;
+  ['Month','Lifting (t)','Lifting Budget','Invoice Date','Type of Expense','Invoice Number','Amount without GST','Claim Status'].forEach((hd,i)=>{const c=ws.getCell(r,i+1);c.value=hd;c.font={bold:true,size:12};c.fill=YEL;});
+  box(r);r++;
+  const n=Math.max(months.length,ex.length);
+  for(let i=0;i<n;i++){
+    const m=months[i],a=ex[i],row=ws.getRow(r);
+    if(m){const tt=tonnes(P.k,m.key);row.getCell(1).value=MON[(q-1)*3+i];if(tt){row.getCell(2).value=tt;row.getCell(3).value=Math.round(tt*S.cfg.rate*100)/100;}}
+    if(a){
+      const d=a.invoiceDate||a.plannedOn; if(d){const [y,mm,dd]=d.split('-').map(Number);row.getCell(4).value=new Date(Date.UTC(y,mm-1,dd));row.getCell(4).numFmt='dd-mmm-yy';}
+      row.getCell(5).value=a.title+(isGift(a.category)?' (Gifting)':'');
+      row.getCell(6).value=a.invoiceNo||'';
+      row.getCell(7).value=stmtAmt(a);
+      row.getCell(8).value=[a.claimStatus&&a.claimStatus!=='Not claimed'?a.claimStatus:'',a.status].filter(Boolean).join(' / ');
+      if(['Draft','Rejected'].includes(a.status)) for(let c=4;c<=8;c++) row.getCell(c).font={color:{argb:'FF8A8A8A'},italic:true};
+    }
+    row.getCell(2).numFmt='#,##0.00';row.getCell(3).numFmt=INR2;row.getCell(7).numFmt=INR0;
+    box(r);r++;
+  }
+  const tot=(label,col,val,extra)=>{const row=ws.getRow(r);row.getCell(1).value=label;row.getCell(1).font={bold:true};
+    if(extra)extra(row); if(col){row.getCell(col).value=val;row.getCell(col).numFmt=val<0?'-#,##0.00;-#,##0.00':INR2;row.getCell(col).font={bold:true};}box(r);r++;return row;};
+  tot('Total Spent',7,spent,row=>{row.getCell(2).value=p.t;row.getCell(2).numFmt='#,##0.00';row.getCell(2).font={bold:true};});
+  tot('Lifting Budget',7,p.accrued,row=>{row.getCell(3).value=p.accrued;row.getCell(3).numFmt=INR2;row.getCell(3).font={bold:true};
+    row.getCell(5).value=`Gifting: ${Math.round(p.gift).toLocaleString('en-IN')} of ${Math.round(p.giftCap).toLocaleString('en-IN')} cap (${S.cfg.giftCapPct}%)`;row.getCell(5).font={italic:true,color:{argb:'FF555555'}};});
+  const diff=p.accrued-spent;
+  const xr=tot(diff<0?'Excess Amount':'Excess/ Remaining Amount',7,diff);
+  if(diff<0){xr.getCell(7).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFC00000'}};xr.getCell(7).font={bold:true,color:{argb:'FFFFFFFF'}};}
+  return r+1;
+}
+const INR2='[>=10000000]##\\,##\\,##\\,##0.00;[>=100000]##\\,##\\,##0.00;##,##0.00', INR0='[>=10000000]##\\,##\\,##\\,##0;[>=100000]##\\,##\\,##0;##,##0';
+function setCols(ws){[24,13,16,14,34,22,22,26].forEach((w,i)=>ws.getColumn(i+1).width=w);ws.pageSetup={orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0};ws.views=[{showGridLines:false}];}
+function summarySheet(wb,fy,qs){
+  const ws=wb.addWorksheet('Summary');setCols(ws);
+  const YEL={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}};
+  ws.mergeCells(1,1,1,8);const t=ws.getCell(1,1);t.value=`SAIL Branding Budget — ${fyLabel(fy)} — Bharat Steel (Chennai) Pvt. Ltd.`;t.font={bold:true,size:14};t.alignment={horizontal:'center'};t.fill=YEL;
+  ws.getCell(2,1).value=`Rate ₹${S.cfg.rate}/tonne · Gifting cap ${S.cfg.giftCapPct}% · Generated ${fmtD(new Date())}`;ws.getCell(2,1).font={italic:true,color:{argb:'FF555555'}};
+  const hd=['Product','Lifting quarter','Tonnes','Budget accrued','Use window','Pending SAIL','Approved / spent','Balance / Excess'];
+  hd.forEach((x,i)=>{const c=ws.getCell(4,i+1);c.value=x;c.font={bold:true};c.fill=YEL;c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};});
+  let r=5;
+  PRODS.forEach(P=>qs.forEach(q=>{const p=pot(P.k,fy,q);
+    const vals=[P.name,qLabel(fy,q),p.t,p.accrued,`${fmtMY(p.useFrom)} – ${fmtMY(p.useTo)}`,p.pending,p.approved+p.spent,p.released?p.balance:p.accrued-p.used];
+    vals.forEach((v,i)=>{const c=ws.getCell(r,i+1);c.value=v;c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};if(i===2)c.numFmt='#,##0.000';if(i>=3&&i!==4)c.numFmt=(typeof v==='number'&&v<0)?'-#,##0;-#,##0':INR0;});
+    if(vals[7]<0){const c=ws.getCell(r,8);c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFC00000'}};c.font={bold:true,color:{argb:'FFFFFFFF'}};}
+    r++;}));
+}
+async function buildReport(ExcelJS,fy,which){
+  const wb=new ExcelJS.Workbook();wb.creator='SAIL Branding Budget Tracker';
+  const qs=which==='all'?[1,2,3,4]:[+which];
+  summarySheet(wb,fy,qs);
+  qs.forEach(q=>{const ws=wb.addWorksheet(`Q${q} ${MON[(q-1)*3]}-${MON[(q-1)*3+2]} Lifting`);setCols(ws);let r=1;PRODS.forEach(P=>{r=addBlock(ws,r,P,fy,q);});});
+  return wb.xlsx.writeBuffer();
+}
+async function downloadReport(){
+  const which=document.getElementById('dlQ').value, btn=document.getElementById('dlBtn');
+  btn.disabled=true;btn.textContent='Preparing…';
+  try{
+    const ExcelJS=await loadExcel();
+    const buf=await buildReport(ExcelJS,S.fy,which);
+    const fyTag=`FY${String(S.fy).slice(2)}-${String(S.fy+1).slice(2)}`;
+    const url=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const a=document.createElement('a');a.href=url;a.download=`SAIL_Branding_${which==='all'?'All_Quarters':'Q'+which}_${fyTag}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }catch(e){ toast('Download failed: '+(e?.message||e)); }
+  finally{btn.disabled=false;btn.textContent='Download Excel';}
+}
+
+/* ---------- activity modal ---------- */
+function potOptions(prod, current){
+  const fys=[S.fy-1,S.fy,S.fy+1];
+  const all=fys.flatMap(fy=>[1,2,3,4].map(q=>pot(prod,fy,q))).filter(p=>p.accrued>0||p.id===current);
+  if(!all.length) return '<option value="">No lifting entered yet for this product</option>';
+  return all.map(p=>`<option value="${p.id}" ${p.id===current?'selected':''}>${qLabel(p.fy,p.q)} lifting — balance ${inr(p.balance)}${p.expired?' (closed)':p.released<p.accrued?' (locked/partly locked)':''}</option>`).join('');
+}
+function defaultPot(prod){
+  const fys=[S.fy-1,S.fy];
+  const c=fys.flatMap(fy=>[1,2,3,4].map(q=>pot(prod,fy,q))).filter(p=>p.balance>0);
+  if(c.length) return c[0].id;
+  const any=fys.flatMap(fy=>[1,2,3,4].map(q=>pot(prod,fy,q))).filter(p=>p.accrued>0&&!p.expired);
+  return any[0]?.id||'';
+}
+function openAct(id){
+  const a = id ? {...S.acts.find(x=>x.id===id)} : {prod:'HR',status:'Draft',category:S.cfg.categories[0],plannedOn:S.asOf};
+  if(!id) a.pot=defaultPot('HR');
+  const ro=S.readonly?'disabled':'';
+  const cats=[...new Set([...S.cfg.categories,a.category].filter(Boolean))];
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" id="mbg"><div class="modal">
+    <h2>${id?'Branding activity':'New branding activity'}</h2>
+    <div class="form">
+      <div class="f w2"><label>Type of expense / activity *</label><input id="aTitle" value="${esc(a.title)}" ${ro} placeholder="e.g. Toothukudi Airport Branding"></div>
+      <div class="f"><label>Category</label><select id="aCat" ${ro}>${cats.map(c=>`<option ${c===a.category?'selected':''}>${esc(c)}</option>`).join('')}</select></div>
+      <div class="f"><label>Budget (product) *</label><select id="aProd" ${ro}>${PRODS.map(p=>`<option value="${p.k}" ${p.k===a.prod?'selected':''}>${p.name}</option>`).join('')}</select></div>
+      <div class="f w2"><label>Charge to quarter's budget *</label><select id="aPot" ${ro}>${potOptions(a.prod,a.pot)}</select></div>
+      <div class="f"><label>Vendor</label><input id="aVendor" value="${esc(a.vendor)}" ${ro}></div>
+      <div class="f"><label>Planned date</label><input type="date" id="aPlan" value="${esc(a.plannedOn)}" ${ro}></div>
+      <div class="f"><label>Estimated amount without GST (₹) *</label><input type="number" min="0" id="aEst" value="${a.estAmount??''}" ${ro}></div>
+      <div class="f"><label>Status</label><select id="aStatus" ${ro}>${STATUSES.map(s=>`<option ${s===a.status?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="f"><label>SAIL reference no.</label><input id="aRef" value="${esc(a.sailRef)}" ${ro}></div>
+      <div class="f"><label>Sent to SAIL on</label><input type="date" id="aSub" value="${esc(a.submittedOn)}" ${ro}></div>
+      <div class="f"><label>SAIL approved on</label><input type="date" id="aApp" value="${esc(a.approvedOn)}" ${ro}></div>
+      <div class="f"><label>SAIL approved amount (₹)</label><input type="number" min="0" id="aAppAmt" value="${a.approvedAmount??''}" ${ro}></div>
+      <div class="f"><label>Invoice date</label><input type="date" id="aInvD" value="${esc(a.invoiceDate)}" ${ro}></div>
+      <div class="f"><label>Invoice number</label><input id="aInv" value="${esc(a.invoiceNo)}" ${ro}></div>
+      <div class="f"><label>Invoice amount without GST (₹)</label><input type="number" min="0" id="aAct" value="${a.actualAmount??''}" ${ro}></div>
+      <div class="f"><label>Claim submitted on</label><input type="date" id="aClaimD" value="${esc(a.claimSubmittedOn)}" ${ro}></div>
+      <div class="f"><label>Claim status</label><select id="aClaim" ${ro}>${CLAIMS.map(c=>`<option ${c===(a.claimStatus||'Not claimed')?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="f w3"><label>Remarks</label><textarea id="aRem" rows="2" ${ro}>${esc(a.remarks)}</textarea></div>
+    </div>
+    <div id="aInfo" class="hint" style="margin-top:10px"></div>
+    <div id="aErr" class="err"></div>
+    <div class="toolbar" style="margin:16px 0 0">
+      ${id&&!S.readonly?'<button class="btn danger" id="aDel">Delete</button>':''}<span class="sp"></span>
+      <button class="btn sec" id="aCancel">Close</button>${S.readonly?'':'<button class="btn" id="aSave">Save</button>'}
+    </div></div></div>`;
+  const $=s=>document.getElementById(s);
+  const info=()=>{const pid=$('aPot').value;if(!pid){$('aInfo').innerHTML='';return;}const p=potFromId(pid);
+    const own=id?S.acts.find(x=>x.id===id):null;
+    $('aInfo').innerHTML=`<b>${qLabel(p.fy,p.q)} ${PRODS.find(x=>x.k===p.prod).name} budget:</b> accrued ${inr(p.accrued)} · released ${inr(p.released)} · use window ${fmtD(p.useFrom)} – ${fmtD(p.useTo)} · balance <b>${inr(p.balance)}</b> · gifting ${inr(p.gift)} of ${inr(p.giftCap)} cap${own&&own.pot===pid&&own.status!=='Draft'&&own.status!=='Rejected'?' (balances include this activity)':''}`;};
+  info();
+  $('aProd').onchange=()=>{$('aPot').innerHTML=potOptions($('aProd').value,defaultPot($('aProd').value));info();};
+  $('aPot').onchange=info;
+  $('aStatus').onchange=()=>{const s=$('aStatus').value;if(s==='Sent to SAIL'&&!$('aSub').value)$('aSub').value=S.asOf;if(s==='Approved by SAIL'){if(!$('aApp').value)$('aApp').value=S.asOf;if(!$('aAppAmt').value)$('aAppAmt').value=$('aEst').value;}};
+  $('aCancel').onclick=closeModal; $('mbg').onclick=e=>{if(e.target.id==='mbg')closeModal();};
+  if($('aDel')) $('aDel').onclick=async()=>{if($('aDel').dataset.c!=='1'){$('aDel').dataset.c='1';$('aDel').textContent='Click again to delete';return;}try{await api('/api/save',{action:'delete_activity',id});S.acts=S.acts.filter(x=>x.id!==id);closeModal();toast('Activity deleted');render();}catch(e){handleWriteErr(e);}};
+  if($('aSave')) $('aSave').onclick=async()=>{
+    const n={title:$('aTitle').value.trim(),category:$('aCat').value,prod:$('aProd').value,pot:$('aPot').value,vendor:$('aVendor').value.trim(),plannedOn:$('aPlan').value,
+      estAmount:+$('aEst').value||0,status:$('aStatus').value,sailRef:$('aRef').value.trim(),submittedOn:$('aSub').value,approvedOn:$('aApp').value,
+      approvedAmount:$('aAppAmt').value===''?null:+$('aAppAmt').value,actualAmount:$('aAct').value===''?null:+$('aAct').value,invoiceNo:$('aInv').value.trim(),invoiceDate:$('aInvD').value,claimStatus:$('aClaim').value,claimSubmittedOn:$('aClaimD').value,remarks:$('aRem').value.trim(),updatedAt:new Date().toISOString()};
+    const {errs,warns}=validate(n,id);
+    if(errs.length){$('aErr').textContent=errs.join('\n');$('aSave').textContent='Save';delete $('aSave').dataset.ok;return;}
+    const sig=warns.join('|');
+    if(warns.length && $('aSave').dataset.ok!==sig){$('aErr').innerHTML='<span style="color:var(--warn)">'+esc(warns.join('\n'))+'</span>';$('aSave').dataset.ok=sig;$('aSave').textContent='Save anyway';return;}
+    $('aSave').disabled=true;
+    try{ const j=await api('/api/save',{action:'activity',id:id||undefined,data:{...n,createdAt:a.createdAt||''}}); const row={...n,id:j.id,createdAt:a.createdAt||n.updatedAt}; S.acts=[...S.acts.filter(x=>x.id!==j.id),row]; closeModal(); toast('Saved'); render(); load(); }
+    catch(e){$('aSave').disabled=false;if(e.message!=='Signed out')$('aErr').textContent=e.message;}
+  };
+}
+function closeModal(){document.getElementById('modalRoot').innerHTML='';}
+function amountOf(n){return n.status==='Completed'?(n.actualAmount??n.approvedAmount??n.estAmount):n.status==='Approved by SAIL'?(n.approvedAmount??n.estAmount):n.estAmount;}
+function validate(n,id){
+  const e=[], w=[];
+  if(!n.title) e.push('Enter an activity title.');
+  if(!n.pot) e.push('Choose which quarter’s budget this is charged to (enter lifting tonnes first if none are listed).');
+  if(!(n.estAmount>0)) e.push('Enter the estimated amount.');
+  if(e.length) return {errs:e,warns:w};
+  if(n.status==='Approved by SAIL'&&!n.approvedOn) e.push('Enter the date SAIL approved it.');
+  if(n.status==='Completed'&&!n.approvedOn) e.push('An activity can be completed only after SAIL approval — enter the SAIL approval date.');
+  if(n.status==='Completed'&&!(n.actualAmount>0)) e.push('Enter the invoice amount (without GST) for a completed activity.');
+  if(n.status==='Draft'||n.status==='Rejected') return {errs:e,warns:w};
+  // budget checks, excluding this activity's own existing claim
+  const p=potFromId(n.pot);
+  const old=id?S.acts.find(x=>x.id===id):null;
+  const oldAmt = old&&old.pot===n.pot&&!['Draft','Rejected'].includes(old.status)?(+amountOf(old)||0):0;
+  const oldGift = old&&old.pot===n.pot&&isGift(old.category)&&!['Draft','Rejected'].includes(old.status)?oldAmt:0;
+  const amt=+amountOf(n)||0;
+  if(p.expired) w.push(`The ${qLabel(p.fy,p.q)} budget could only be used until ${fmtD(p.useTo)} — that window has closed.`);
+  const avail=p.balance+oldAmt;
+  const pname=`${qLabel(p.fy,p.q)} ${PRODS.find(x=>x.k===p.prod).name}`;
+  if(p.released<=0 && !p.expired){
+    e.push(`The ${pname} budget is not released yet — it can be used only from ${fmtD(p.useFrom)}${p.held?' (on hold by SAIL)':''}. Keep this activity as Draft until then.`);
+  } else if(amt>avail+0.5){
+    w.push(`This goes ${inr(amt-avail)} over the ${pname} balance of ${inr(Math.max(0,avail))} — it will show as Excess.`+(p.released<p.accrued?` (${inr(p.accrued-p.released)} more is released from ${fmtD(p.useFrom)}.)`:''));
+  }
+  if(isGift(n.category)){
+    const g=p.gift-oldGift+amt;
+    if(g>p.giftCap+0.5) e.push(`Gifting would reach ${inr(g)}, above the ${S.cfg.giftCapPct}% cap of ${inr(p.giftCap)} for this quarter's budget.`);
+  }
+  if(n.plannedOn && !p.expired && S.cfg.lapse && new Date(n.plannedOn)>p.useTo) w.push(`Planned date is after ${fmtD(p.useTo)}, when this budget lapses.`);
+  return {errs:e,warns:w};
+}
+
+/* ---------- events ---------- */
+function bind(){
+  document.querySelectorAll('[data-lift]').forEach(inp=>inp.onchange=async()=>{
+    const id=inp.dataset.lift, v=Math.max(0,+inp.value||0);
+    const [prod,month]=id.split('_');
+    S.lifting[id]={prod,month,tonnes:v};
+    render();
+    try{await api('/api/save',{action:'lifting',prod,month,tonnes:v});}catch(e){handleWriteErr(e);}
+  });
+  document.querySelectorAll('[data-rel]').forEach(sel=>sel.onchange=async()=>{const r={...(S.cfg.releases||{})};if(sel.value==='normal')delete r[sel.dataset.rel];else r[sel.dataset.rel]=sel.value;S.cfg.releases=r;render();try{const j=await api('/api/save',{action:'releases',month:sel.dataset.rel,mode:sel.value});S.cfg.releases=j.releases;}catch(e){handleWriteErr(e);}});
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=e=>{e.preventDefault();openAct(b.dataset.edit);});
+  const g=id=>document.getElementById(id);
+  if(g('newAct')) g('newAct').onclick=()=>openAct(null);
+  if(g('fProd')) g('fProd').onchange=e=>{S.actFilter.prod=e.target.value;render();};
+  if(g('fStatus')) g('fStatus').onchange=e=>{S.actFilter.status=e.target.value;render();};
+  if(g('fQ')) g('fQ').oninput=e=>{S.actFilter.q=e.target.value;clearTimeout(S.qt);S.qt=setTimeout(()=>{render();const f=g('fQ');f.focus();f.setSelectionRange(f.value.length,f.value.length);},300);};
+  if(g('copyCsv')) g('copyCsv').onclick=async()=>{
+    const head=['Type of expense','Category','Product','Budget quarter','Vendor','Planned','Status','SAIL ref','Sent on','Approved on','Estimated (excl GST)','Approved amt','Invoice amt (excl GST)','Invoice no','Invoice date','Claim status','Remarks'];
+    const rows=S.acts.map(a=>{const[,fy,q]=a.pot.split('_');return [a.title,a.category,PRODS.find(p=>p.k===a.prod).name,qLabel(+fy,+q.slice(1)),a.vendor,a.plannedOn,a.status,a.sailRef,a.submittedOn,a.approvedOn,a.estAmount,a.approvedAmount??'',a.actualAmount??'',a.invoiceNo,a.invoiceDate,a.claimStatus,a.remarks];});
+    const csv=[head,...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    try{await navigator.clipboard.writeText(csv);toast('Copied — paste into Excel');}catch(_){toast('Copy was blocked by the browser');}
+  };
+  if(g('dlBtn')) g('dlBtn').onclick=downloadReport;
+  if(g('saveNotify')) g('saveNotify').onclick=()=>{
+    const wa=s=>s.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const parts=l.split(',');const raw=parts.pop();let num=raw.replace(/\D/g,'');if(num.length===10)num='91'+num;return {name:parts.join(',').trim(),num};});
+    const bw=wa(g('nBudWa').value), cw=wa(g('nClmWa').value), badW=[...bw,...cw].filter(x=>x.num.length<11||x.num.length>13);
+    if(badW.length){toast('Check WhatsApp numbers: '+badW.map(x=>x.name||x.num).join(', '));return;}
+    saveCfg({notify:{budgetWa:bw,claimsWa:cw,pendingDays:Math.max(1,+g('nPend').value||7),claimDays:Math.max(1,+g('nClaimD').value||30),warnDays:Math.max(1,+g('nWarn').value||7)}});
+  };
+  if(g('usersBox')) loadUsers();
+  if(g('uAdd')) g('uAdd').onclick=async()=>{try{await api('/api/users',{action:'add',name:g('uName').value,email:g('uEmail').value,role:g('uRole').value,password:g('uPw').value});toast('User added — share the email and starting password with them');['uName','uEmail','uPw'].forEach(x=>g(x).value='');loadUsers();}catch(e){toast(e.message);}};
+  if(g('pSave')) g('pSave').onclick=async()=>{try{await api('/api/auth',{action:'change_password',current:g('pCur').value,next:g('pNew').value});g('pCur').value='';g('pNew').value='';toast('Password changed');}catch(e){toast(e.message);}};
+  if(g('saveSet')) g('saveSet').onclick=()=>{
+    const cats=g('sCats').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    saveCfg({rate:Math.max(0,+g('sRate').value||0),giftCapPct:Math.min(100,Math.max(0,+g('sGift').value||0)),lapse:g('sLapse').checked,categories:cats.length?cats:DEFAULT_CATS});
+  };
+}
+init();
+</script>
+</body>
+</html>

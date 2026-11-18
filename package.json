@@ -1,0 +1,13 @@
+{
+  "name": "sail-branding",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SAIL Branding Budget Tracker — Bharat Steel (Chennai) Pvt. Ltd. (Vercel + Neon)",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
