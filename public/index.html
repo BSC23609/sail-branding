@@ -84,7 +84,7 @@ a.btn.wa{background:#1e8e4e;color:#fff;text-decoration:none;display:inline-block
 .np{position:fixed;top:58px;right:18px;width:440px;max-width:calc(100vw - 24px);max-height:calc(100vh - 80px);display:flex;flex-direction:column;background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(10,30,70,.22),0 2px 6px rgba(10,30,70,.08);border:1px solid #e6e9f0;z-index:40;overflow:hidden;animation:npIn .16s ease-out}
 @keyframes npIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 .np-h{padding:16px 18px 10px;display:flex;align-items:baseline;gap:8px}
-.np-h b{font-size:15px}.np-h span{font-size:12px;color:var(--muted)}
+.np-h b{font-size:15px}.np-close{margin-left:auto;border:0;background:#f1f3f7;color:var(--muted);width:28px;height:28px;border-radius:8px;font-size:18px;line-height:1;cursor:pointer}.np-close:hover{background:#e6e9f0}.np-h span{font-size:12px;color:var(--muted)}
 .np-f{display:flex;gap:6px;padding:0 18px 12px;flex-wrap:wrap;border-bottom:1px solid #eef0f4}
 .np-f button{border:1px solid #e3e7ee;background:#fff;border-radius:999px;padding:4px 11px;font:inherit;font-size:12px;color:var(--muted);cursor:pointer}
 .np-f button.on{background:var(--navy);border-color:var(--navy);color:#fff}
@@ -122,6 +122,46 @@ a.btn.wa{background:#1e8e4e;color:#fff;text-decoration:none;display:inline-block
 .qt-rows .sub{font-size:11.5px;color:var(--muted);padding-left:10px}
 .qt-foot{font-size:11.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:7px;margin-top:auto}
 .qt-none{font-size:13px;padding:14px 0}
+.dash-bar{display:flex;justify-content:flex-end;margin-bottom:12px}
+.seg{display:inline-flex;background:#fff;border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:none;padding:7px 14px;border-radius:7px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.seg button.on{background:var(--navy);color:#fff}
+.qgrid.q4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1100px){.qgrid.q4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* ---------- phones & small tablets ---------- */
+@media(max-width:760px){
+  body{font-size:13.5px}
+  header{padding:10px 12px;gap:8px}
+  header h1{font-size:16px}
+  header .sub{font-size:11px}
+  header .ctrls{margin-left:0;width:100%;gap:6px}
+  header .ctrls label{display:none}
+  header select,header input[type=date]{padding:5px 6px;font-size:12.5px}
+  #fySel{flex:1}#asOf{flex:1;min-width:0}
+  #who{display:none}
+  #logout{padding:5px 8px!important}
+  nav{padding:0 6px}
+  nav button{padding:11px 10px;font-size:13px}
+  main{padding:12px 10px}
+  .card{padding:12px;border-radius:9px}
+  .card h2{font-size:14px;flex-wrap:wrap}
+  .card h2 .hint{display:block;width:100%;font-size:11.5px}
+  .dash-bar{justify-content:stretch}
+  .seg{width:100%}.seg button{flex:1;justify-content:center;padding:8px 6px;font-size:12.5px}
+  .qgrid,.qgrid.q4{grid-template-columns:1fr}
+  .qt-big .v{font-size:20px}
+  .form{grid-template-columns:1fr!important}
+  .f.w2,.f.w3{grid-column:auto}
+  .modal-bg{padding:0;align-items:stretch}
+  .modal{border-radius:0;min-height:100vh;padding:16px 14px}
+  .toolbar{gap:8px}
+  .toolbar input,.toolbar select{width:100%!important}
+  th,td{padding:7px 7px}
+  .np{top:auto;bottom:0;right:0;left:0;width:100%;max-width:none;max-height:80vh;border-radius:16px 16px 0 0}
+  .banner{font-size:12.5px}
+  .stmt th,.stmt td{white-space:nowrap}
+  .qt-empty .qt-none{padding:4px 0}
+}
 .pill-hr{color:var(--hr);font-weight:700} .pill-str{color:var(--str);font-weight:700}
 </style>
 </head>
@@ -173,7 +213,8 @@ const DEFAULT_CATS = ['Gifting - T-shirts','Gifting - Stationery','Gifting - Oth
 const CLAIMS = ['Not claimed','Draft invoice sent','Claim submitted to SAIL','Claim received'];
 const DEFAULT_NOTIFY = {budgetWa:[], claimsWa:[], pendingDays:7, claimDays:30, warnDays:7};
 const DEFAULT_CFG = {rate:100, giftCapPct:25, lapse:false, releases:{}, categories:DEFAULT_CATS, notify:DEFAULT_NOTIFY};
-const S = {me:null, cfg:{...DEFAULT_CFG}, lifting:{}, acts:[], files:[], storage:{ready:false}, tab:'dash', fy:null, asOf:null, loaded:{cfg:false,lift:false,act:false}, readonly:false, actFilter:{prod:'',status:'',q:''}};
+let _dp='all'; try{_dp=localStorage.getItem('sail.dashProd')||'all';}catch(_){}
+const S = {dashProd:_dp, me:null, cfg:{...DEFAULT_CFG}, lifting:{}, acts:[], files:[], storage:{ready:false}, tab:'dash', fy:null, asOf:null, loaded:{cfg:false,lift:false,act:false}, readonly:false, actFilter:{prod:'',status:'',q:''}};
 
 /* ---------- date / FY helpers ---------- */
 const pad = n => String(n).padStart(2,'0');
@@ -329,13 +370,14 @@ function drawBell(){
   const cnt=k=>all.filter(a=>a.kind===k).length;
   const sevCls={'c-bad':'sev-bad','c-warn':'sev-warn','c-info':'sev-info','c-ok':'sev-ok'};
   const sevTxt={'c-bad':'Action needed','c-warn':'Coming up','c-info':'Heads-up','c-ok':'For information'};
-  panel.innerHTML=`<div class="np-h"><b>Notifications</b><span>${urgent?urgent+' need attention':'All clear'} · as of ${fmtD(asOfDate())}</span></div>
+  panel.innerHTML=`<div class="np-h"><b>Notifications</b><span>${urgent?urgent+' need attention':'All clear'} · as of ${fmtD(asOfDate())}</span><button class="np-close" aria-label="Close">×</button></div>
     <div class="np-f"><button data-f="all" class="${npFilter==='all'?'on':''}">All ${all.length}</button>${Object.entries(NP_KINDS).filter(([k])=>cnt(k)).map(([k,[l]])=>`<button data-f="${k}" class="${npFilter===k?'on':''}">${l} ${cnt(k)}</button>`).join('')}</div>
     <div class="np-b">${list.length?list.map(x=>`<div class="np-i ${sevCls[x.sev]} ${x.id?'click':''}" ${x.id?`data-np="${x.id}"`:''}>
         <div class="np-ic">${NP_KINDS[x.kind]?.[1]||'•'}</div>
         <div><div class="np-t">${esc(x.t)}</div><div class="np-m"><span class="np-dot"></span>${sevTxt[x.sev]} · ${NP_KINDS[x.kind]?.[0]||''}${x.id?' · <span style="color:var(--navy);font-weight:600">Open ›</span>':''}</div></div>
       </div>`).join(''):`<div class="np-e">✓ Nothing here right now.</div>`}</div>
     ${!S.guest&&all.length&&((S.cfg.notify?.budgetWa||[]).length||(S.cfg.notify?.claimsWa||[]).length)?`<div class="np-x">Share on WhatsApp: ${waButtons('Budget',all)} ${waButtons('Claims',all)}</div>`:''}`;
+  panel.querySelector('.np-close').onclick=closeBell;
   panel.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{npFilter=b.dataset.f;drawBell();});
   panel.querySelectorAll('[data-np]').forEach(el=>el.onclick=()=>{closeBell();openAct(el.dataset.np);});
 }
@@ -471,34 +513,37 @@ function quarterTile(x,P){
 }
 function renderDash(){
   if(!S.loaded.lift) return '<div class="empty">Loading lifting data…</div>';
-  const cards=PRODS.map(P=>{
+  const show=PRODS.filter(P=>S.dashProd==='all'||S.dashProd===P.k), single=show.length===1;
+  const sw=`<div class="seg" role="tablist">${[['all','All products'],...PRODS.map(P=>[P.k,P.name])].map(([k,l])=>`<button data-dp="${k}" class="${S.dashProd===k?'on':''}">${k!=='all'?`<span class="dot" style="background:${PRODS.find(P=>P.k===k).color}"></span>`:''}${l}</button>`).join('')}</div>`;
+  const cards=show.map(P=>{
     const pots=potsFor(P.k,S.fy);
-    return `<div class="card"><h2><span class="dot" style="background:${P.color}"></span>${P.name} <span class="hint" style="font-weight:400">· ${fyLabel(S.fy)} · each quarter's budget is used in the following quarter</span></h2>
-      <div class="qgrid">${pots.map(x=>quarterTile(x,P)).join('')}</div></div>`;
+    return `<div class="card"><h2><span class="dot" style="background:${P.color}"></span>${P.name} <span class="hint" style="font-weight:400">${fyLabel(S.fy)} · each quarter's budget is used in the following quarter</span></h2>
+      <div class="qgrid ${single?'q4':''}">${pots.map(x=>quarterTile(x,P)).join('')}</div></div>`;
   }).join('');
 
-  const upcoming = S.acts.filter(a=>a.status==='Sent to SAIL').sort((a,b)=>(a.submittedOn||'').localeCompare(b.submittedOn||''));
+  const upcoming = S.acts.filter(a=>a.status==='Sent to SAIL'&&show.some(P=>P.k===a.prod)).sort((a,b)=>(a.submittedOn||'').localeCompare(b.submittedOn||''));
   const pend = upcoming.length?`<table><thead><tr><th>Activity</th><th>Product</th><th>Budget from</th><th>Sent on</th><th class="n">Amount</th></tr></thead><tbody>${upcoming.slice(0,8).map(a=>{const P=PRODS.find(p=>p.k===a.prod);const[,fy,q]=a.pot.split('_');return `<tr><td>${esc(a.title)}${isGift(a.category)?' <span class="chip c-info">Gifting</span>':''}</td><td class="${P.cls}">${P.name}</td><td>${qLabel(+fy,+q.slice(1))}</td><td>${a.submittedOn?fmtD(new Date(a.submittedOn)):'—'}</td><td class="n">${inr(a.estAmount)}</td></tr>`;}).join('')}</tbody></table>`:'<div class="empty">Nothing waiting on SAIL right now.</div>';
 
-  return `<div class="grid g2">${cards}</div>
-  <div class="card" style="margin-top:14px"><h2>Monthly lifting — ${fyLabel(S.fy)}</h2>${chart()}</div>
+  return `<div class="dash-bar">${sw}</div><div class="grid ${single?'':'g2'}">${cards}</div>
+  <div class="card" style="margin-top:14px"><h2>Monthly lifting — ${fyLabel(S.fy)}${single?' · '+show[0].name:''}</h2>${chart(show.map(P=>P.k))}</div>
   <div class="card" style="margin-top:14px"><h2>Waiting for SAIL approval</h2><div class="tw">${pend}</div></div>`;
 }
-function chart(){
+function chart(prods=['HR','STR']){
   const ms=fyMonths(S.fy);
   const vals=ms.map(m=>[tonnes('HR',m.key),tonnes('STR',m.key)]);
-  const max=Math.max(1,...vals.flat());
+  const max=Math.max(1,...vals.map(v=>Math.max(prods.includes('HR')?v[0]:0,prods.includes('STR')?v[1]:0)));
   const W=1000,H=240,pl=50,pb=34,pt=10,cw=(W-pl-10)/12,bw=cw*0.32;
   const nice=(()=>{const p=Math.pow(10,Math.floor(Math.log10(max)));const s=[1,2,2.5,5,10].map(x=>x*p).find(x=>x*4>=max)||p*10;return s;})();
   const top=nice*4, y=v=>pt+(H-pt-pb)*(1-v/top);
   let g='';
   for(let i=0;i<=4;i++){const v=nice*i;g+=`<line x1="${pl}" x2="${W-10}" y1="${y(v)}" y2="${y(v)}" stroke="#e6e9ef"/><text x="${pl-6}" y="${y(v)+4}" font-size="11" text-anchor="end" fill="#5b6475">${v.toLocaleString('en-IN')}</text>`;}
   ms.forEach((m,i)=>{const x=pl+cw*i+cw/2;
-    [[vals[i][0],'#01578C',-bw-1],[vals[i][1],'#C7701E',1]].forEach(([v,c,o])=>{if(v>0)g+=`<rect x="${x+o}" y="${y(v)}" width="${bw}" height="${H-pb-y(v)}" rx="2" fill="${c}"><title>${m.label}: ${tn(v)} t</title></rect>`;});
+    const one=prods.length===1;
+    [[prods.includes('HR')?vals[i][0]:0,'#01578C',one?-bw/2:-bw-1],[prods.includes('STR')?vals[i][1]:0,'#C7701E',one?-bw/2:1]].forEach(([v,c,o])=>{if(v>0)g+=`<rect x="${x+o}" y="${y(v)}" width="${bw}" height="${H-pb-y(v)}" rx="2" fill="${c}"><title>${m.label}: ${tn(v)} t</title></rect>`;});
     g+=`<text x="${x}" y="${H-pb+16}" font-size="11.5" text-anchor="middle" fill="#5b6475">${m.label}</text>`;
     if(i%3===0&&i>0)g+=`<line x1="${pl+cw*i}" x2="${pl+cw*i}" y1="${pt}" y2="${H-pb}" stroke="#c9cfd9" stroke-dasharray="3 3"/>`;
   });
-  return `<div class="legend" style="margin-bottom:6px"><span><i class="dot" style="background:#01578C"></i>HR Coil (t)</span><span><i class="dot" style="background:#C7701E"></i>Structural (t)</span><span>Dashed lines = quarter ends</span></div><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Monthly tonnes lifted">${g}</svg>`;
+  return `<div class="legend" style="margin-bottom:6px">${prods.includes('HR')?'<span><i class="dot" style="background:#01578C"></i>HR Coil (t)</span>':''}${prods.includes('STR')?'<span><i class="dot" style="background:#C7701E"></i>Structural (t)</span>':''}<span>Dashed lines = quarter ends</span></div><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Monthly tonnes lifted">${g}</svg>`;
 }
 
 function renderLift(){
@@ -989,6 +1034,7 @@ function bind(){
     try{await navigator.clipboard.writeText(csv);toast('Copied — paste into Excel');}catch(_){toast('Copy was blocked by the browser');}
   };
   if(g('dlBtn')) g('dlBtn').onclick=downloadReport;
+  document.querySelectorAll('[data-dp]').forEach(b=>b.onclick=()=>{S.dashProd=b.dataset.dp;try{localStorage.setItem('sail.dashProd',S.dashProd);}catch(_){}render();});
   if(g('tEdit')) g('tEdit').onclick=()=>{g('tView').style.display='none';g('tEditBox').style.display='';g('tEdit').style.display='none';};
   if(g('tCancel')) g('tCancel').onclick=()=>render();
   if(g('tSave')) g('tSave').onclick=()=>saveCfg({terms:g('tText').value.trim(),termsUpdatedBy:S.me.email,termsUpdatedAt:new Date().toISOString()});
