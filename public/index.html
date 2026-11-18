@@ -95,6 +95,7 @@ a.btn.wa{background:#1e8e4e;color:#fff;text-decoration:none;display:inline-block
     <div id="lErr" class="err"></div>
     <button class="btn" id="lBtn" style="width:100%;margin-top:14px;padding:10px">Sign in</button>
     <div class="hint" style="margin-top:12px">Forgot your password? Ask a tracker admin to reset it.</div>
+    <div id="lViewWrap" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);text-align:center"><a href="#" id="lView" style="color:var(--navy);font-weight:600">View the tracker without signing in →</a></div>
   </form>
 </div>
 <div id="app" style="display:none">
@@ -211,6 +212,7 @@ function waText(team,list){
   return `*SAIL Branding – ${team} team update (${fmtD(asOfDate())})*\n\n${lines.join('\n')}\n\nTracker: ${location.origin}`;
 }
 function waButtons(team,list){
+  if(S.guest) return '';
   const N={...DEFAULT_NOTIFY,...(S.cfg.notify||{})};
   const nums=(team==='Claims'?N.claimsWa:N.budgetWa)||[];
   if(!list.some(x=>x.team===team)) return '';
@@ -297,12 +299,12 @@ async function saveCfg(patch){
 async function load(){
   try{
     const d=await api('/api/data');
-    S.me=d.me; S.readonly=!(d.me.role==='admin'||d.me.role==='editor');
+    S.me=d.me; S.guest=!d.me; S.readonly=S.guest||!(d.me.role==='admin'||d.me.role==='editor');
     S.cfg={...DEFAULT_CFG,...d.config}; if(!S.cfg.categories?.length)S.cfg.categories=DEFAULT_CATS;
     S.lifting=d.lifting; S.acts=d.activities; S.files=d.files||[]; S.storage=d.storage||{ready:false}; S.err=null;
     S.loaded={cfg:true,lift:true,act:true};
   }catch(e){ if(e.message!=='Signed out') S.err='Could not load data: '+e.message; }
-  if(S.me){ showApp(); if(!document.getElementById('mbg') && !(document.activeElement&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)&&document.activeElement.closest('#main'))) render(); }
+  if(S.me||S.guest){ showApp(); if(!document.getElementById('mbg') && !(document.activeElement&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)&&document.activeElement.closest('#main'))) render(); }
 }
 function showLogin(msg){
   document.getElementById('app').style.display='none';
@@ -312,8 +314,10 @@ function showLogin(msg){
 function showApp(){
   document.getElementById('login').style.display='none';
   document.getElementById('app').style.display='';
-  document.getElementById('who').textContent=`${S.me.name||S.me.email} · ${S.me.role}`;
-  document.querySelectorAll('#tabs button[data-t="set"]').forEach(b=>b.textContent=S.me.role==='admin'?'Settings & users':'Settings & rules');
+  document.getElementById('who').textContent=S.guest?'View only':`${S.me.name||S.me.email} · ${S.me.role}`;
+  document.getElementById('logout').textContent=S.guest?'Sign in to edit':'Sign out';
+  document.querySelectorAll('#tabs button[data-t="set"]').forEach(b=>{b.style.display=S.guest?'none':'';b.textContent=S.me?.role==='admin'?'Settings & users':'Settings & rules';});
+  if(S.guest&&S.tab==='set'){S.tab='dash';document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x.dataset.t==='dash'));}
 }
 async function init(){
   const now=new Date(); S.fy=fyOfDate(now); S.asOf=todayStr();
@@ -321,17 +325,28 @@ async function init(){
   document.getElementById('lForm').onsubmit=async e=>{
     e.preventDefault();
     const btn=document.getElementById('lBtn');btn.disabled=true;
-    try{const j=await api('/api/auth',{action:'login',email:document.getElementById('lEmail').value,password:document.getElementById('lPw').value});S.me=j.user;document.getElementById('lPw').value='';await load();}
+    try{const j=await api('/api/auth',{action:'login',email:document.getElementById('lEmail').value,password:document.getElementById('lPw').value});S.me=j.user;S.guest=false;document.getElementById('lPw').value='';await load();}
     catch(err){document.getElementById('lErr').textContent=err.message;}
     finally{btn.disabled=false;}
   };
-  document.getElementById('logout').onclick=async()=>{try{await api('/api/auth',{action:'logout'});}catch(_){}S.me=null;showLogin('');};
+  document.getElementById('logout').onclick=async()=>{
+    if(S.guest){showLogin('');return;}
+    try{await api('/api/auth',{action:'logout'});}catch(_){}
+    S.me=null; if(S.publicView){S.guest=true;await load();} else showLogin('');
+  };
+  document.getElementById('lView').onclick=async e=>{e.preventDefault();S.guest=true;await load();};
   try{
     const j=await api('/api/auth',{action:'me'});
-    if(!j.user){showLogin(j.setup?'No accounts yet. Set ADMIN_EMAIL and ADMIN_PASSWORD in Vercel, redeploy, then sign in with them.':'');return;}
+    S.publicView=!!j.publicView;
+    document.getElementById('lViewWrap').style.display=S.publicView?'':'none';
+    if(!j.user){
+      if(j.setup){showLogin('No accounts yet. Set ADMIN_EMAIL and ADMIN_PASSWORD in Vercel, redeploy, then sign in with them.');return;}
+      if(S.publicView){S.guest=true;await load();return;}
+      showLogin('');return;
+    }
     S.me=j.user; await load();
   }catch(e){showLogin('Could not reach the server: '+e.message);}
-  setInterval(()=>{if(S.me&&document.visibilityState==='visible')load();},30000);
+  setInterval(()=>{if((S.me||S.guest)&&document.visibilityState==='visible'&&document.getElementById('app').style.display!=='none')load();},30000);
 }
 function setupHeader(){
   const sel=document.getElementById('fySel');
@@ -349,7 +364,8 @@ function render(){
   let pre='';
   if(S.slow) pre+='<div class="banner warn">The data store is taking longer than usual to answer — figures may be incomplete or out of date.</div>';
   if(S.err) pre+=`<div class="banner bad">${esc(S.err)}</div>`;
-  if(S.readonly) pre+='<div class="banner warn">View-only access: you can see the figures but not change them. Ask an admin for editor access.</div>';
+  if(S.guest) pre+='<div class="banner" style="background:var(--infobg);color:var(--info)">You are viewing the tracker without signing in. Figures are read-only; documents are hidden. Use <b>Sign in to edit</b> (top right) to add or change entries.</div>';
+  else if(S.readonly) pre+='<div class="banner warn">View-only access: you can see the figures but not change them. Ask an admin for editor access.</div>';
   if(S.asOf!==todayStr()) pre+=`<div class="banner warn">Showing the budget position as of <b>${fmtD(asOfDate())}</b> (not today). Clear the “As of” date to return to today.</div>`;
   updateBell();
   const body = {dash:renderDash,stmt:renderStmt,lift:renderLift,act:renderActs,terms:renderTerms,set:renderSettings}[S.tab]();
@@ -475,7 +491,7 @@ function renderActs(){
       <input id="fQ" placeholder="Search title, vendor, SAIL ref…" value="${esc(f.q)}" style="width:240px;border:1px solid #cdd3dd;border-radius:6px;padding:6px 8px">
       <span class="sp"></span>
       <button class="btn sec" id="copyCsv">Copy as CSV</button>
-      <button class="btn" id="newAct" ${S.readonly?'disabled':''}>+ New activity</button></div>
+      ${S.guest?'':`<button class="btn" id="newAct" ${S.readonly?'disabled':''}>+ New activity</button>`}</div>
     <div class="tw">${list.length?`<table><thead><tr><th>Activity</th><th>Product</th><th>Budget from</th><th>Planned</th><th>Status</th><th class="n">Amount</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:'<div class="empty">No branding activities for this year yet. Add one with “+ New activity”.</div>'}</div></div>`;
 }
 
@@ -487,6 +503,7 @@ function renderSettings(){
       <div class="f"><label>Branding rate (₹ per tonne)</label><input type="number" id="sRate" min="0" value="${c.rate}" ${ro}></div>
       <div class="f"><label>Max gifting share (%)</label><input type="number" id="sGift" min="0" max="100" value="${c.giftCapPct}" ${ro}></div>
       <div class="f w3"><label><input type="checkbox" id="sLapse" ${c.lapse?'checked':''} ${ro} style="width:auto;margin-right:6px">Unused budget lapses at the end of its usage quarter</label></div>
+      <div class="f w3"><label><input type="checkbox" id="sPublic" ${c.publicView!==false?'checked':''} ${ro} style="width:auto;margin-right:6px">Public view — anyone with the link can see the figures without signing in (documents, users and phone numbers stay hidden)</label></div>
       <div class="f w3"><label>Activity categories (one per line — names starting with “Gifting” count towards the gifting cap)</label><textarea id="sCats" rows="9" ${ro}>${esc(c.categories.join('\n'))}</textarea></div>
     </div>
     ${admin?'<div style="margin-top:12px"><button class="btn" id="saveSet">Save settings</button></div>':''}
@@ -625,7 +642,7 @@ function renderStmt(){
   });});
   const curQ=(()=>{const m=asOfDate().getMonth()+1;return m>=4?Math.floor((m-4)/3)+1:4;})();
   const dlBar=`<div class="card toolbar" style="margin-bottom:14px"><b>Download report</b><select id="dlQ" style="width:auto;border:1px solid #cdd3dd;border-radius:6px;padding:6px 8px">${[1,2,3,4].map(q=>`<option value="${q}" ${q===(curQ===1?4:curQ-1)?'selected':''}>Q${q} lifting (${MON[(q-1)*3]}–${MON[(q-1)*3+2]}) · ${fyLabel(S.fy)}</option>`).join('')}<option value="all">All quarters · ${fyLabel(S.fy)}</option></select><button class="btn" id="dlBtn">Download Excel</button><span class="hint">HR Coil and Structural blocks in your sheet format, plus a summary tab</span></div>`;
-  return dlBar+`<div class="toolbar"><span class="hint">Each block is one quarter's lifting and the expenses charged to it. Totals deduct every activity except Rejected ones (shown greyed), including Drafts. Click an expense to open it; 📎 shows attached documents.</span><span class="sp"></span><button class="btn" id="newAct" ${S.readonly?'disabled':''}>+ New activity</button></div>`+
+  return dlBar+`<div class="toolbar"><span class="hint">Each block is one quarter's lifting and the expenses charged to it. Totals deduct every activity except Rejected ones (shown greyed), including Drafts. Click an expense to open it; 📎 shows attached documents.</span><span class="sp"></span>${S.guest?'':`<button class="btn" id="newAct" ${S.readonly?'disabled':''}>+ New activity</button>`}</div>`+
     (blocks.length?blocks.join(''):'<div class="card empty">No lifting or expenses entered for this year yet. Start on the Lifting entry tab.</div>');
 }
 
@@ -723,6 +740,7 @@ function docsList(kind,ref){
     <td style="width:90px;text-align:right">${S.readonly?'':`<button class="btn danger sm" data-fdel="${f.id}">Delete</button>`}</td></tr>`).join('')}</tbody></table>`;
 }
 function docsPanel(kind,ref,types){
+  if(S.guest){const n=filesFor(kind,ref).length;return `<div class="hint">${n?n+' document'+(n>1?'s':'')+' attached. ':'No documents attached. '}Sign in to view documents.</div>`;}
   const up = S.readonly ? '' : (!S.storage?.ready
     ? '<div class="banner warn" style="margin:0">File storage is not connected yet — an admin needs to connect a Vercel Blob store (Private) to the project and redeploy.</div>'
     : `<div class="toolbar" style="margin:0"><select class="dType" style="width:auto;border:1px solid #cdd3dd;border-radius:6px;padding:6px 8px">${types.map(t=>`<option>${t}</option>`).join('')}</select>
@@ -934,7 +952,7 @@ function bind(){
   if(g('pSave')) g('pSave').onclick=async()=>{try{await api('/api/auth',{action:'change_password',current:g('pCur').value,next:g('pNew').value});g('pCur').value='';g('pNew').value='';toast('Password changed');}catch(e){toast(e.message);}};
   if(g('saveSet')) g('saveSet').onclick=()=>{
     const cats=g('sCats').value.split('\n').map(s=>s.trim()).filter(Boolean);
-    saveCfg({rate:Math.max(0,+g('sRate').value||0),giftCapPct:Math.min(100,Math.max(0,+g('sGift').value||0)),lapse:g('sLapse').checked,categories:cats.length?cats:DEFAULT_CATS});
+    saveCfg({rate:Math.max(0,+g('sRate').value||0),giftCapPct:Math.min(100,Math.max(0,+g('sGift').value||0)),lapse:g('sLapse').checked,publicView:g('sPublic').checked,categories:cats.length?cats:DEFAULT_CATS});
   };
 }
 init();

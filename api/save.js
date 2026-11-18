@@ -41,7 +41,7 @@ function cleanConfig(c) {
   const n = c.notify || {};
   const int = (v, d) => Math.max(1, Math.min(365, parseInt(v, 10) || d));
   return {
-    rate: Math.max(0, +c.rate || 0), giftCapPct: Math.min(100, Math.max(0, +c.giftCapPct || 0)), lapse: !!c.lapse,
+    rate: Math.max(0, +c.rate || 0), giftCapPct: Math.min(100, Math.max(0, +c.giftCapPct || 0)), lapse: !!c.lapse, publicView: c.publicView !== false,
     releases, categories: cats.length ? cats : DEFAULT_CFG.categories,
     notify: { budgetWa: wa(n.budgetWa), claimsWa: wa(n.claimsWa), pendingDays: int(n.pendingDays, 7), claimDays: int(n.claimDays, 30), warnDays: int(n.warnDays, 7) },
     terms: str(c.terms, 20000), termsUpdatedBy: str(c.termsUpdatedBy, 120), termsUpdatedAt: str(c.termsUpdatedAt, 40)

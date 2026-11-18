@@ -14,7 +14,7 @@ export function setSql(fn) { _sql = fn; _ready = null; } // local tests only
 
 export const DEFAULT_CATS = ['Gifting - T-shirts', 'Gifting - Stationery', 'Gifting - Other', 'Signage / Hoarding', 'Shop / Yard branding', 'Vehicle branding', 'Print & Brochures', 'Digital / Social media', 'Dealer & customer meet', 'Other'];
 export const DEFAULT_CFG = {
-  rate: 100, giftCapPct: 25, lapse: false, releases: { '2026-04': 'early' }, categories: DEFAULT_CATS,
+  rate: 100, giftCapPct: 25, lapse: false, releases: { '2026-04': 'early' }, categories: DEFAULT_CATS, publicView: true,
   notify: { budgetWa: [], claimsWa: [], pendingDays: 7, claimDays: 30, warnDays: 7 }
 };
 
@@ -143,6 +143,12 @@ export async function currentUser(req) {
   const sql = getSql();
   const rows = await sql`SELECT id, email, name, role FROM sail_users WHERE id = ${p.uid} AND active = true`;
   return rows[0] || null;
+}
+/** Public (no-login) read-only view is on unless an admin switched it off. */
+export const publicViewOn = cfg => cfg?.publicView !== false;
+export async function loadConfig() {
+  const rows = await getSql()`SELECT data FROM sail_config WHERE id = 1`;
+  return { ...DEFAULT_CFG, ...(rows[0]?.data || {}) };
 }
 export const canEdit = u => u && (u.role === 'admin' || u.role === 'editor');
 export const isAdmin = u => u && u.role === 'admin';

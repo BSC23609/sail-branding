@@ -1,4 +1,4 @@
-import { route, send, readBody, getSql, checkPassword, hashPassword, setSession, clearSession, currentUser } from './_lib.js';
+import { route, send, readBody, getSql, checkPassword, hashPassword, setSession, clearSession, currentUser, loadConfig, publicViewOn } from './_lib.js';
 
 // POST {action: login | logout | me | change_password}
 export default route(async (req, res) => {
@@ -20,7 +20,7 @@ export default route(async (req, res) => {
   if (b.action === 'me') {
     if (!me) {
       const [{ n }] = await sql`SELECT COUNT(*)::int AS n FROM sail_users`;
-      return send(res, 200, { user: null, setup: n === 0 });
+      return send(res, 200, { user: null, setup: n === 0, publicView: publicViewOn(await loadConfig()) });
     }
     return send(res, 200, { user: me });
   }
