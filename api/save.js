@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { del } from '@vercel/blob';
 import { route, send, readBody, getSql, currentUser, canEdit, isAdmin, DEFAULT_CFG } from './_lib.js';
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -18,6 +19,7 @@ function cleanActivity(a) {
     submittedOn: date(a.submittedOn), approvedOn: date(a.approvedOn), approvedAmount: num(a.approvedAmount),
     actualAmount: num(a.actualAmount), invoiceNo: str(a.invoiceNo, 100), invoiceDate: date(a.invoiceDate),
     claimStatus: CLAIMS.includes(a.claimStatus) ? a.claimStatus : 'Not claimed', claimSubmittedOn: date(a.claimSubmittedOn),
+    cnNo: str(a.cnNo, 100), cnDate: date(a.cnDate), cnAmount: num(a.cnAmount),
     remarks: str(a.remarks, 1000), createdAt: str(a.createdAt, 40), updatedAt: new Date().toISOString()
   };
   const errs = [];
@@ -25,8 +27,8 @@ function cleanActivity(a) {
   if (!['HR', 'STR'].includes(out.prod)) errs.push('product');
   if (!POT_RE.test(out.pot || '') || !out.pot.startsWith(out.prod + '_')) errs.push('budget quarter');
   if (!STATUSES.includes(out.status)) errs.push('status');
-  ['estAmount', 'approvedAmount', 'actualAmount'].forEach(k => { if (Number.isNaN(out[k])) errs.push(k); });
-  ['plannedOn', 'submittedOn', 'approvedOn', 'invoiceDate', 'claimSubmittedOn'].forEach(k => { if (out[k] === 'bad') errs.push(k); });
+  ['estAmount', 'approvedAmount', 'actualAmount', 'cnAmount'].forEach(k => { if (Number.isNaN(out[k])) errs.push(k); });
+  ['plannedOn', 'submittedOn', 'approvedOn', 'invoiceDate', 'claimSubmittedOn', 'cnDate'].forEach(k => { if (out[k] === 'bad') errs.push(k); });
   return { out, errs };
 }
 
@@ -90,7 +92,11 @@ export default route(async (req, res) => {
       return send(res, 200, { ok: true, id });
     }
     case 'delete_activity': {
-      await sql`DELETE FROM sail_activities WHERE id = ${String(b.id || '')}`;
+      const aid = String(b.id || '');
+      const files = await sql`SELECT id, url FROM sail_files WHERE kind = 'activity' AND ref = ${aid}`;
+      if (files.length && process.env.BLOB_READ_WRITE_TOKEN) { try { await del(files.map(f => f.url)); } catch (e) { console.warn('blob delete failed:', e.message); } }
+      await sql`DELETE FROM sail_files WHERE kind = 'activity' AND ref = ${aid}`;
+      await sql`DELETE FROM sail_activities WHERE id = ${aid}`;
       return send(res, 200, { ok: true });
     }
   }

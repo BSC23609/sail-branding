@@ -130,7 +130,7 @@ const DEFAULT_CATS = ['Gifting - T-shirts','Gifting - Stationery','Gifting - Oth
 const CLAIMS = ['Not claimed','Draft invoice sent','Claim submitted to SAIL','Claim received'];
 const DEFAULT_NOTIFY = {budgetWa:[], claimsWa:[], pendingDays:7, claimDays:30, warnDays:7};
 const DEFAULT_CFG = {rate:100, giftCapPct:25, lapse:false, releases:{}, categories:DEFAULT_CATS, notify:DEFAULT_NOTIFY};
-const S = {me:null, cfg:{...DEFAULT_CFG}, lifting:{}, acts:[], tab:'dash', fy:null, asOf:null, loaded:{cfg:false,lift:false,act:false}, readonly:false, actFilter:{prod:'',status:'',q:''}};
+const S = {me:null, cfg:{...DEFAULT_CFG}, lifting:{}, acts:[], files:[], storage:{ready:false}, tab:'dash', fy:null, asOf:null, loaded:{cfg:false,lift:false,act:false}, readonly:false, actFilter:{prod:'',status:'',q:''}};
 
 /* ---------- date / FY helpers ---------- */
 const pad = n => String(n).padStart(2,'0');
@@ -174,13 +174,13 @@ function pot(prod,fy,q){
   const expired = S.cfg.lapse && now>useTo;
   const id = `${prod}_${fy}_Q${q}`;
   const acts = S.acts.filter(a=>a.pot===id);
-  let pending=0, approved=0, spent=0, gift=0;
+  let planned=0, pending=0, approved=0, spent=0, gift=0;
   acts.forEach(a=>{
-    if(a.status==='Sent to SAIL'){pending+=+a.estAmount||0; if(isGift(a.category)) gift+=+a.estAmount||0;}
-    else if(a.status==='Approved by SAIL'){const v=+(a.approvedAmount||a.estAmount)||0;approved+=v;if(isGift(a.category)) gift+=v;}
-    else if(a.status==='Completed'){const v=+(a.actualAmount||a.approvedAmount||a.estAmount)||0;spent+=v;if(isGift(a.category)) gift+=v;}
+    const v=committedAmt(a); if(!v) return;
+    if(a.status==='Draft') planned+=v; else if(a.status==='Sent to SAIL') pending+=v; else if(a.status==='Approved by SAIL') approved+=v; else if(a.status==='Completed') spent+=v;
+    if(isGift(a.category)) gift+=v;
   });
-  const used = pending+approved+spent;
+  const used = planned+pending+approved+spent;
   const giftCap = accrued*S.cfg.giftCapPct/100;
   const balance = expired ? 0 : released-used;
   const lapsed = expired ? Math.max(0, released-used) : 0;
@@ -190,7 +190,15 @@ function pot(prod,fy,q){
   else if(expired){status='Usage window closed';cls='c-mute';}
   else if(now>=useFrom){status = held>0?'Usable · part on hold':'Usable now'; cls='c-ok';}
   if(held>0 && now>qEnd(fy,q) && !expired && released===0){status='On hold (SAIL)';cls='c-bad';}
-  return {id,prod,fy,q,t,accrued,released,held,useFrom,useTo,expired,pending,approved,spent,used,gift,giftCap,balance,lapsed,status,cls,acts};
+  return {id,prod,fy,q,t,accrued,released,held,useFrom,useTo,expired,planned,pending,approved,spent,used,gift,giftCap,balance,lapsed,status,cls,acts};
+}
+/* Amount an activity takes from its quarter's budget. Only Rejected takes nothing. */
+function committedAmt(a){
+  if(!a||a.status==='Rejected') return 0;
+  const n=v=>(v===null||v===undefined||v==='')?null:+v;
+  if(a.status==='Sent to SAIL') return n(a.estAmount)||0;
+  if(a.status==='Approved by SAIL') return n(a.approvedAmount)??n(a.estAmount)??0;
+  return n(a.actualAmount)??n(a.approvedAmount)??n(a.estAmount)??0;   // Draft / Completed: invoice if entered
 }
 function potsFor(prod,fy){return [1,2,3,4].map(q=>pot(prod,fy,q));}
 function potFromId(id){const [prod,fy,q]=id.split('_');return pot(prod,+fy,+q.slice(1));}
@@ -252,7 +260,7 @@ async function load(){
     const d=await api('/api/data');
     S.me=d.me; S.readonly=!(d.me.role==='admin'||d.me.role==='editor');
     S.cfg={...DEFAULT_CFG,...d.config}; if(!S.cfg.categories?.length)S.cfg.categories=DEFAULT_CATS;
-    S.lifting=d.lifting; S.acts=d.activities; S.err=null;
+    S.lifting=d.lifting; S.acts=d.activities; S.files=d.files||[]; S.storage=d.storage||{ready:false}; S.err=null;
     S.loaded={cfg:true,lift:true,act:true};
   }catch(e){ if(e.message!=='Signed out') S.err='Could not load data: '+e.message; }
   if(S.me){ showApp(); if(!document.getElementById('mbg') && !(document.activeElement&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)&&document.activeElement.closest('#main'))) render(); }
@@ -314,7 +322,7 @@ function prodSummary(p){
   const live=[...potsFor(p.k,S.fy-1),...pots].filter(x=>!x.expired && x.released>0);
   const t=pots.reduce((s,x)=>s+x.t,0), acc=pots.reduce((s,x)=>s+x.accrued,0);
   const avail=live.reduce((s,x)=>s+Math.max(0,x.balance),0);
-  const pending=pots.reduce((s,x)=>s+x.pending,0)+ (potsFor(p.k,S.fy-1)[3].pending);
+  const pending=pots.reduce((s,x)=>s+x.planned+x.pending,0)+ (()=>{const z=potsFor(p.k,S.fy-1)[3];return z.planned+z.pending;})();
   const used=pots.reduce((s,x)=>s+x.approved+x.spent,0);
   const locked=pots.reduce((s,x)=>s+Math.max(0,x.accrued-x.released-x.held),0);
   const giftUsed=live.reduce((s,x)=>s+x.gift,0), giftCap=live.reduce((s,x)=>s+x.giftCap,0);
@@ -333,7 +341,7 @@ function renderDash(){
         <div class="kpi"><div class="l">Tonnes lifted</div><div class="v">${tn(t)} t</div><div class="s">× ₹${S.cfg.rate}/t</div></div>
         <div class="kpi"><div class="l">Budget accrued</div><div class="v">${inr(acc)}</div><div class="s">${inr(locked)} still locked</div></div>
         <div class="kpi" style="background:var(--okbg)"><div class="l">Available to use now</div><div class="v" style="color:var(--ok)">${inr(avail)}</div><div class="s">released, not yet committed</div></div>
-        <div class="kpi"><div class="l">Pending SAIL approval</div><div class="v">${inr(pending)}</div><div class="s">sent, awaiting reply</div></div>
+        <div class="kpi"><div class="l">Draft + pending SAIL</div><div class="v">${inr(pending)}</div><div class="s">planned or awaiting SAIL reply</div></div>
         <div class="kpi"><div class="l">Approved / spent</div><div class="v">${inr(used)}</div><div class="s">${lapsed>0?`<span style="color:var(--bad)">${inr(lapsed)} lapsed unused</span>`:'nothing lapsed'}</div></div>
         <div class="kpi"><div class="l">Gifting in usable budget</div><div class="v">${inr(giftUsed)}</div><div class="s">cap ${inr(giftCap)} (${S.cfg.giftCapPct}%)</div><div class="meter"><i style="width:${Math.min(100,gp)}%;background:${gcol}"></i></div></div>
       </div></div>`;}).join('');
@@ -345,15 +353,15 @@ function renderDash(){
       <td>${fmtMY(x.useFrom)} – ${fmtMY(x.useTo)}</td>
       <td><span class="chip ${x.cls}">${x.status||'—'}</span></td>
       <td class="n">${inr(x.released)}</td>
-      <td class="n">${inr(x.pending)}</td>
+      <td class="n">${inr(x.planned+x.pending)}</td>
       <td class="n">${inr(x.approved+x.spent)}</td>
       <td class="n"><b>${x.expired?'<span class="hint">closed</span>':x.balance<0?`<span style="color:var(--bad)">−${inr(-x.balance)} excess</span>`:inr(x.balance)}</b></td>
       <td class="n">${x.accrued?`<span style="color:${x.gift>x.giftCap?'var(--bad)':'inherit'}">${inr(x.gift)}</span> <span class="hint">/ ${inr(x.giftCap)}</span>`:'—'}</td>
     </tr>`).join('');
     const T=k=>pots.reduce((s,x)=>s+x[k],0);
     return `<div class="card"><h2><span class="dot" style="background:${p.color}"></span>${p.name} — quarter-wise budget</h2><div class="tw"><table>
-      <thead><tr><th>Lifting quarter</th><th class="n">Tonnes</th><th class="n">Accrued</th><th>Use window</th><th>Status</th><th class="n">Released</th><th class="n">Pending SAIL</th><th class="n">Approved / spent</th><th class="n">Balance</th><th class="n">Gifting / cap</th></tr></thead>
-      <tbody>${rows}<tr class="tot"><td>Total</td><td class="n">${tn(T('t'))}</td><td class="n">${inr(T('accrued'))}</td><td></td><td></td><td class="n">${inr(T('released'))}</td><td class="n">${inr(T('pending'))}</td><td class="n">${inr(T('approved')+T('spent'))}</td><td class="n">${inr(T('balance'))}</td><td></td></tr></tbody></table></div></div>`;
+      <thead><tr><th>Lifting quarter</th><th class="n">Tonnes</th><th class="n">Accrued</th><th>Use window</th><th>Status</th><th class="n">Released</th><th class="n">Draft / pending SAIL</th><th class="n">Approved / spent</th><th class="n">Balance</th><th class="n">Gifting / cap</th></tr></thead>
+      <tbody>${rows}<tr class="tot"><td>Total</td><td class="n">${tn(T('t'))}</td><td class="n">${inr(T('accrued'))}</td><td></td><td></td><td class="n">${inr(T('released'))}</td><td class="n">${inr(T('planned')+T('pending'))}</td><td class="n">${inr(T('approved')+T('spent'))}</td><td class="n">${inr(T('balance'))}</td><td></td></tr></tbody></table></div></div>`;
   }).join('');
 
   const upcoming = S.acts.filter(a=>a.status==='Sent to SAIL').sort((a,b)=>(a.submittedOn||'').localeCompare(b.submittedOn||''));
@@ -395,12 +403,13 @@ function renderLift(){
         <option value="normal" ${mode==='normal'?'selected':''}>Normal — usable next quarter</option>
         <option value="early" ${mode==='early'?'selected':''}>Special release — usable now</option>
         <option value="hold" ${mode==='hold'?'selected':''}>On hold — not released by SAIL</option>
-      </select></td></tr>`;}).join('');
+      </select></td>
+      <td style="white-space:nowrap"><button class="btn sec sm" data-docs="lifting|HR_${m.key}|HR Coil · ${m.label}">HR 📎 ${filesFor('lifting','HR_'+m.key).length}</button> <button class="btn sec sm" data-docs="lifting|STR_${m.key}|Structural · ${m.label}">STR 📎 ${filesFor('lifting','STR_'+m.key).length}</button></td></tr>`;}).join('');
   const T=p=>ms.reduce((a,m)=>a+tonnes(p,m.key),0);
   return `<div class="card"><h2>Monthly lifting — ${fyLabel(S.fy)}</h2>
-    <p class="hint" style="margin-top:-4px">Enter tonnes lifted from SAIL each month. Budget = tonnes × ₹${S.cfg.rate}. Changes save automatically when you leave a cell. Use <b>SAIL release</b> only when SAIL makes an exception (e.g. releasing a month early) or holds a release.</p>
-    <div class="tw"><table><thead><tr><th>Month</th><th>Qtr</th><th>HR Coil (t)</th><th class="n">HR budget</th><th>Structural (t)</th><th class="n">Structural budget</th><th>SAIL release</th></tr></thead>
-    <tbody>${rows}<tr class="tot"><td>Total</td><td></td><td class="n">${tn(T('HR'))} t</td><td class="n">${inr(T('HR')*S.cfg.rate)}</td><td class="n">${tn(T('STR'))} t</td><td class="n">${inr(T('STR')*S.cfg.rate)}</td><td></td></tr></tbody></table></div></div>`;
+    <p class="hint" style="margin-top:-4px">Enter tonnes lifted from SAIL each month. Budget = tonnes × ₹${S.cfg.rate}. Changes save automatically when you leave a cell. Use <b>SAIL release</b> only when SAIL makes an exception (e.g. releasing a month early) or holds a release. Use <b>📎</b> to attach SAIL invoices and credit notes for that month.</p>
+    <div class="tw"><table><thead><tr><th>Month</th><th>Qtr</th><th>HR Coil (t)</th><th class="n">HR budget</th><th>Structural (t)</th><th class="n">Structural budget</th><th>SAIL release</th><th>Documents</th></tr></thead>
+    <tbody>${rows}<tr class="tot"><td>Total</td><td></td><td class="n">${tn(T('HR'))} t</td><td class="n">${inr(T('HR')*S.cfg.rate)}</td><td class="n">${tn(T('STR'))} t</td><td class="n">${inr(T('STR')*S.cfg.rate)}</td><td></td><td></td></tr></tbody></table></div></div>`;
 }
 
 function renderActs(){
@@ -412,8 +421,8 @@ function renderActs(){
   list.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
   const chip=s=>({'Draft':'c-mute','Sent to SAIL':'c-warn','Approved by SAIL':'c-info','Rejected':'c-bad','Completed':'c-ok'})[s];
   const rows=list.map(a=>{const P=PRODS.find(p=>p.k===a.prod);const[,fy,q]=a.pot.split('_');
-    const amt=a.status==='Completed'?(a.actualAmount||a.approvedAmount||a.estAmount):a.status==='Approved by SAIL'?(a.approvedAmount||a.estAmount):a.estAmount;
-    return `<tr><td><b>${esc(a.title)}</b><div class="hint">${esc(a.category)}${a.vendor?' · '+esc(a.vendor):''}</div></td>
+    const amt=committedAmt(a);
+    return `<tr><td><b>${esc(a.title)}</b>${clip('activity',a.id)}<div class="hint">${esc(a.category)}${a.vendor?' · '+esc(a.vendor):''}</div></td>
       <td class="${P.cls}">${P.name}</td><td>${qLabel(+fy,+q.slice(1))}</td>
       <td>${a.plannedOn?fmtD(new Date(a.plannedOn)):'—'}</td>
       <td><span class="chip ${chip(a.status)}">${a.status}</span>${a.sailRef?`<div class="hint">Ref ${esc(a.sailRef)}</div>`:''}</td>
@@ -476,7 +485,7 @@ function renderSettings(){
     <li><b>Budget = tonnes lifted × ₹${c.rate}.</b> It builds up month by month through the quarter.</li>
     <li><b>Use only after the quarter.</b> A quarter's budget stays locked until the quarter ends and can be used only in the following quarter (Q1 Apr–Jun → used Jul–Sep; Q4 Jan–Mar → used Apr–Jun of the next FY).${c.lapse?' Anything not used in that quarter lapses.':''}</li>
     <li><b>SAIL exceptions.</b> On the Lifting entry tab a month can be marked <i>Special release</i> (usable straight away, as SAIL allowed for April) or <i>On hold</i> (SAIL hasn't released it).</li>
-    <li><b>SAIL approval for every activity.</b> Each activity moves Draft → Sent to SAIL → Approved by SAIL → Completed. Money can be used only once it is released. Going over a quarter's balance is allowed with a warning and shows as Excess in red.</li>
+    <li><b>SAIL approval for every activity.</b> Each activity moves Draft → Sent to SAIL → Approved by SAIL → Completed. Every activity except Rejected is deducted from its quarter's budget (Drafts too, using the invoice amount if entered, otherwise the estimate). Money can be used only once it is released. Going over a quarter's balance is allowed with a warning and shows as Excess in red.</li>
     <li><b>Gifting cap.</b> T-shirts, stationery and other gifting can't exceed ${c.giftCapPct}% of a quarter's budget. Sending or approving an activity that would cross it is blocked.</li>
   </ol></div></div>`;
 }
@@ -499,7 +508,6 @@ async function loadUsers(){
 }
 
 /* ---------- quarter statement (sheet format) ---------- */
-function stmtAmt(a){return +(a.actualAmount??a.approvedAmount??a.estAmount)||0;}
 function renderStmt(){
   if(!S.loaded.lift) return '<div class="empty">Loading…</div>';
   const fmt2=v=>(+v||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -509,22 +517,21 @@ function renderStmt(){
     const months=fyMonths(S.fy).filter(m=>m.q===q);
     const ex=S.acts.filter(a=>a.pot===p.id).sort((a,b)=>(a.invoiceDate||a.plannedOn||'').localeCompare(b.invoiceDate||b.plannedOn||''));
     if(!p.accrued && !ex.length) return;
-    const counted=ex.filter(a=>!['Draft','Rejected'].includes(a.status));
-    const spent=counted.reduce((s,a)=>s+stmtAmt(a),0);
+    const spent=ex.reduce((s,a)=>s+committedAmt(a),0);
     const n=Math.max(months.length,ex.length);
     let rows='';
     for(let i=0;i<n;i++){
       const m=months[i], a=ex[i];
       const t=m?tonnes(P.k,m.key):null;
-      const dim=a&&['Draft','Rejected'].includes(a.status);
+      const dim=a&&a.status==='Rejected';
       const d=a?(a.invoiceDate||a.plannedOn):'';
       rows+=`<tr${dim?' class="dim"':''}>
         <td>${m?MON[(q-1)*3+i]:''}</td><td class="n">${m?(t?fmt2(t):''):''}</td><td class="n">${m?(t?fmt2(t*S.cfg.rate):''):''}</td>
         <td>${a&&d?fmtD(new Date(d)):''}</td>
-        <td>${a?`<a href="#" data-edit="${a.id}">${esc(a.title)}</a>${isGift(a.category)?' <span class="chip c-info">Gifting</span>':''}`:''}</td>
+        <td>${a?`<a href="#" data-edit="${a.id}">${esc(a.title)}</a>${isGift(a.category)?' <span class="chip c-info">Gifting</span>':''}${clip('activity',a.id)}`:''}</td>
         <td>${a?esc(a.invoiceNo||''):''}</td>
-        <td class="n">${a?fmt2(stmtAmt(a)).replace(/\.00$/,''):''}</td>
-        <td>${a?`${esc(a.claimStatus&&a.claimStatus!=='Not claimed'?a.claimStatus:'')}<div class="hint">${a.status}</div>`:''}</td></tr>`;
+        <td class="n">${a?fmt2(committedAmt(a)).replace(/\.00$/,''):''}</td>
+        <td>${a?`${esc(a.claimStatus&&a.claimStatus!=='Not claimed'?a.claimStatus:'')}${a.cnNo||a.cnAmount?`<div class="hint">CN ${esc(a.cnNo||'')}${a.cnAmount?' · '+inr(a.cnAmount):''}</div>`:''}<div class="hint">${a.status}</div>`:''}</td></tr>`;
     }
     const diff=p.accrued-spent, nq=nextQ(S.fy,q);
     blocks.push(`<div class="card stmt" style="margin-bottom:14px"><div class="tw"><table>
@@ -538,7 +545,7 @@ function renderStmt(){
   });});
   const curQ=(()=>{const m=asOfDate().getMonth()+1;return m>=4?Math.floor((m-4)/3)+1:4;})();
   const dlBar=`<div class="card toolbar" style="margin-bottom:14px"><b>Download report</b><select id="dlQ" style="width:auto;border:1px solid #cdd3dd;border-radius:6px;padding:6px 8px">${[1,2,3,4].map(q=>`<option value="${q}" ${q===(curQ===1?4:curQ-1)?'selected':''}>Q${q} lifting (${MON[(q-1)*3]}–${MON[(q-1)*3+2]}) · ${fyLabel(S.fy)}</option>`).join('')}<option value="all">All quarters · ${fyLabel(S.fy)}</option></select><button class="btn" id="dlBtn">Download Excel</button><span class="hint">HR Coil and Structural blocks in your sheet format, plus a summary tab</span></div>`;
-  return dlBar+`<div class="toolbar"><span class="hint">Each block is one quarter's lifting and the expenses charged to it. Totals count all activities except Draft and Rejected (drafts show greyed). Click an expense to open it.</span><span class="sp"></span><button class="btn" id="newAct" ${S.readonly?'disabled':''}>+ New activity</button></div>`+
+  return dlBar+`<div class="toolbar"><span class="hint">Each block is one quarter's lifting and the expenses charged to it. Totals deduct every activity except Rejected ones (shown greyed), including Drafts. Click an expense to open it; 📎 shows attached documents.</span><span class="sp"></span><button class="btn" id="newAct" ${S.readonly?'disabled':''}>+ New activity</button></div>`+
     (blocks.length?blocks.join(''):'<div class="card empty">No lifting or expenses entered for this year yet. Start on the Lifting entry tab.</div>');
 }
 
@@ -553,8 +560,7 @@ function loadExcel(){
 function addBlock(ws,r,P,fy,q){
   const p=pot(P.k,fy,q), months=fyMonths(fy).filter(m=>m.q===q), nq=nextQ(fy,q);
   const ex=S.acts.filter(a=>a.pot===p.id).sort((a,b)=>(a.invoiceDate||a.plannedOn||'').localeCompare(b.invoiceDate||b.plannedOn||''));
-  const counted=ex.filter(a=>!['Draft','Rejected'].includes(a.status));
-  const spent=counted.reduce((s,a)=>s+stmtAmt(a),0);
+  const spent=ex.reduce((s,a)=>s+committedAmt(a),0);
   const YEL={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}};
   const thin={style:'thin',color:{argb:'FF000000'}}, B={top:thin,left:thin,bottom:thin,right:thin};
   const box=(row)=>{for(let c=1;c<=8;c++){ws.getCell(row,c).border=B;}};
@@ -572,9 +578,9 @@ function addBlock(ws,r,P,fy,q){
       const d=a.invoiceDate||a.plannedOn; if(d){const [y,mm,dd]=d.split('-').map(Number);row.getCell(4).value=new Date(Date.UTC(y,mm-1,dd));row.getCell(4).numFmt='dd-mmm-yy';}
       row.getCell(5).value=a.title+(isGift(a.category)?' (Gifting)':'');
       row.getCell(6).value=a.invoiceNo||'';
-      row.getCell(7).value=stmtAmt(a);
-      row.getCell(8).value=[a.claimStatus&&a.claimStatus!=='Not claimed'?a.claimStatus:'',a.status].filter(Boolean).join(' / ');
-      if(['Draft','Rejected'].includes(a.status)) for(let c=4;c<=8;c++) row.getCell(c).font={color:{argb:'FF8A8A8A'},italic:true};
+      row.getCell(7).value=committedAmt(a);
+      row.getCell(8).value=[a.claimStatus&&a.claimStatus!=='Not claimed'?a.claimStatus:'',a.status,a.cnNo||a.cnAmount?`CN ${a.cnNo||''}${a.cnAmount?' '+Math.round(a.cnAmount).toLocaleString('en-IN'):''}`.trim():''].filter(Boolean).join(' / ');
+      if(a.status==='Rejected') for(let c=4;c<=8;c++) row.getCell(c).font={color:{argb:'FF8A8A8A'},italic:true};
     }
     row.getCell(2).numFmt='#,##0.00';row.getCell(3).numFmt=INR2;row.getCell(7).numFmt=INR0;
     box(r);r++;
@@ -596,11 +602,11 @@ function summarySheet(wb,fy,qs){
   const YEL={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}};
   ws.mergeCells(1,1,1,8);const t=ws.getCell(1,1);t.value=`SAIL Branding Budget — ${fyLabel(fy)} — Bharat Steel (Chennai) Pvt. Ltd.`;t.font={bold:true,size:14};t.alignment={horizontal:'center'};t.fill=YEL;
   ws.getCell(2,1).value=`Rate ₹${S.cfg.rate}/tonne · Gifting cap ${S.cfg.giftCapPct}% · Generated ${fmtD(new Date())}`;ws.getCell(2,1).font={italic:true,color:{argb:'FF555555'}};
-  const hd=['Product','Lifting quarter','Tonnes','Budget accrued','Use window','Pending SAIL','Approved / spent','Balance / Excess'];
+  const hd=['Product','Lifting quarter','Tonnes','Budget accrued','Use window','Draft / pending SAIL','Approved / spent','Balance / Excess'];
   hd.forEach((x,i)=>{const c=ws.getCell(4,i+1);c.value=x;c.font={bold:true};c.fill=YEL;c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};});
   let r=5;
   PRODS.forEach(P=>qs.forEach(q=>{const p=pot(P.k,fy,q);
-    const vals=[P.name,qLabel(fy,q),p.t,p.accrued,`${fmtMY(p.useFrom)} – ${fmtMY(p.useTo)}`,p.pending,p.approved+p.spent,p.released?p.balance:p.accrued-p.used];
+    const vals=[P.name,qLabel(fy,q),p.t,p.accrued,`${fmtMY(p.useFrom)} – ${fmtMY(p.useTo)}`,p.planned+p.pending,p.approved+p.spent,p.released?p.balance:p.accrued-p.used];
     vals.forEach((v,i)=>{const c=ws.getCell(r,i+1);c.value=v;c.border={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};if(i===2)c.numFmt='#,##0.000';if(i>=3&&i!==4)c.numFmt=(typeof v==='number'&&v<0)?'-#,##0;-#,##0':INR0;});
     if(vals[7]<0){const c=ws.getCell(r,8);c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFC00000'}};c.font={bold:true,color:{argb:'FFFFFFFF'}};}
     r++;}));
@@ -623,6 +629,69 @@ async function downloadReport(){
     const a=document.createElement('a');a.href=url;a.download=`SAIL_Branding_${which==='all'?'All_Quarters':'Q'+which}_${fyTag}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
   }catch(e){ toast('Download failed: '+(e?.message||e)); }
   finally{btn.disabled=false;btn.textContent='Download Excel';}
+}
+
+/* ---------- documents (Vercel Blob, private) ---------- */
+function filesFor(kind,ref){return (S.files||[]).filter(f=>f.kind===kind&&f.ref===ref);}
+function clip(kind,ref){const n=filesFor(kind,ref).length;return n?` <span class="hint" title="${n} document${n>1?'s':''}">📎${n}</span>`:'';}
+const fmtSize=b=>b>=1048576?(b/1048576).toFixed(1)+' MB':Math.max(1,Math.round(b/1024))+' KB';
+function docsList(kind,ref){
+  const list=filesFor(kind,ref);
+  if(!list.length) return '<div class="hint" style="margin:4px 0 8px">No documents yet.</div>';
+  return `<table style="margin-bottom:8px"><tbody>${list.map(f=>`<tr><td style="width:150px"><span class="chip c-mute">${esc(f.doc_type)}</span></td>
+    <td><a href="/api/files?id=${f.id}" target="_blank" rel="noopener">${esc(f.name)}</a><div class="hint">${fmtSize(f.size)} · ${esc(f.uploaded_by||'')} · ${f.created?fmtD(new Date(f.created)):''}</div></td>
+    <td style="width:90px;text-align:right">${S.readonly?'':`<button class="btn danger sm" data-fdel="${f.id}">Delete</button>`}</td></tr>`).join('')}</tbody></table>`;
+}
+function docsPanel(kind,ref,types){
+  const up = S.readonly ? '' : (!S.storage?.ready
+    ? '<div class="banner warn" style="margin:0">File storage is not connected yet — an admin needs to add a Vercel Blob store (Private) to the project.</div>'
+    : `<div class="toolbar" style="margin:0"><select class="dType" style="width:auto;border:1px solid #cdd3dd;border-radius:6px;padding:6px 8px">${types.map(t=>`<option>${t}</option>`).join('')}</select>
+       <input type="file" class="dFile" multiple style="max-width:280px"><button class="btn sm dUp">Upload</button><span class="hint dMsg"></span></div>
+       <div class="hint">PDF, images, Word/Excel, CorelDraw/AI/PSD or ZIP — up to 100 MB each.</div>`);
+  return `<div class="docs" data-kind="${kind}" data-ref="${esc(ref)}"><div class="dList">${docsList(kind,ref)}</div>${up}</div>`;
+}
+let _blobUpload=null;
+async function blobUpload(){ if(!_blobUpload){ _blobUpload=(await import('/blob-client.js')).upload; } return _blobUpload; }
+async function refreshFiles(){ try{const d=await api('/api/data'); S.files=d.files; S.storage=d.storage;}catch(_){ } }
+function bindDocs(root){
+  root.querySelectorAll('.docs').forEach(box=>{
+    const kind=box.dataset.kind, ref=box.dataset.ref, q=s=>box.querySelector(s);
+    const redraw=()=>{ q('.dList').innerHTML=docsList(kind,ref); bindDel(); };
+    const bindDel=()=>box.querySelectorAll('[data-fdel]').forEach(b=>b.onclick=async()=>{
+      if(b.dataset.c!=='1'){b.dataset.c='1';b.textContent='Sure?';return;}
+      b.disabled=true;try{await api('/api/files',{action:'delete',id:+b.dataset.fdel});S.files=S.files.filter(f=>f.id!==+b.dataset.fdel);redraw();toast('Document deleted');}catch(e){toast(e.message);b.disabled=false;}
+    });
+    bindDel();
+    if(!q('.dUp')) return;
+    q('.dUp').onclick=async()=>{
+      const files=[...q('.dFile').files], type=q('.dType').value, msg=q('.dMsg'), btn=q('.dUp');
+      if(!files.length){toast('Choose a file first');return;}
+      const big=files.find(f=>f.size>100*1024*1024); if(big){toast(big.name+' is over 100 MB');return;}
+      btn.disabled=true;
+      try{
+        const upload=await blobUpload();
+        for(let i=0;i<files.length;i++){
+          const f=files[i], safe=(f.name.replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+/,'')||'file').slice(-120);
+          msg.textContent=`Uploading ${i+1}/${files.length}: ${f.name}…`;
+          const blob=await upload(`sail/${kind}/${ref}/${safe}`, f, {access:S.storage.access, handleUploadUrl:'/api/upload', multipart:f.size>8*1024*1024,
+            onUploadProgress:e=>{msg.textContent=`Uploading ${i+1}/${files.length}: ${f.name} — ${Math.round(e.percentage)}%`;}});
+          await api('/api/files',{action:'register',kind,ref,docType:type,name:f.name,size:f.size,type:f.type,url:blob.url,pathname:blob.pathname});
+        }
+        msg.textContent=''; q('.dFile').value='';
+        await refreshFiles(); redraw(); toast(files.length>1?`${files.length} documents uploaded`:'Document uploaded');
+      }catch(e){ msg.textContent=''; toast('Upload failed: '+(e.message||e)); }
+      finally{ btn.disabled=false; }
+    };
+  });
+}
+function openDocs(kind,ref,label){
+  const types=kind==='lifting'?['SAIL invoice','Credit note','Other']:['Invoice','Creative / artwork','SAIL approval','Credit note','Photo / proof','Other'];
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" id="mbg"><div class="modal" style="max-width:720px">
+    <h2>Documents — ${esc(label)}</h2>${docsPanel(kind,ref,types)}
+    <div class="toolbar" style="margin:16px 0 0"><span class="sp"></span><button class="btn sec" id="dClose">Close</button></div></div></div>`;
+  bindDocs(document.getElementById('modalRoot'));
+  const close=()=>{closeModal();render();};
+  document.getElementById('dClose').onclick=close; document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')close();};
 }
 
 /* ---------- activity modal ---------- */
@@ -664,7 +733,13 @@ function openAct(id){
       <div class="f"><label>Invoice amount without GST (₹)</label><input type="number" min="0" id="aAct" value="${a.actualAmount??''}" ${ro}></div>
       <div class="f"><label>Claim submitted on</label><input type="date" id="aClaimD" value="${esc(a.claimSubmittedOn)}" ${ro}></div>
       <div class="f"><label>Claim status</label><select id="aClaim" ${ro}>${CLAIMS.map(c=>`<option ${c===(a.claimStatus||'Not claimed')?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="f"><label>Credit note no.</label><input id="aCnNo" value="${esc(a.cnNo)}" ${ro}></div>
+      <div class="f"><label>Credit note date</label><input type="date" id="aCnD" value="${esc(a.cnDate)}" ${ro}></div>
+      <div class="f"><label>Credit note amount (₹)</label><input type="number" min="0" id="aCnAmt" value="${a.cnAmount??''}" ${ro}></div>
       <div class="f w3"><label>Remarks</label><textarea id="aRem" rows="2" ${ro}>${esc(a.remarks)}</textarea></div>
+    </div>
+    <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"><h3>Documents</h3>
+      ${id?docsPanel('activity',id,['Invoice','Creative / artwork','SAIL approval','Credit note','Photo / proof','Other']):'<div class="hint">Save the activity first — it then stays open so you can attach the invoice, creatives, SAIL approval and credit notes.</div>'}
     </div>
     <div id="aInfo" class="hint" style="margin-top:10px"></div>
     <div id="aErr" class="err"></div>
@@ -675,28 +750,28 @@ function openAct(id){
   const $=s=>document.getElementById(s);
   const info=()=>{const pid=$('aPot').value;if(!pid){$('aInfo').innerHTML='';return;}const p=potFromId(pid);
     const own=id?S.acts.find(x=>x.id===id):null;
-    $('aInfo').innerHTML=`<b>${qLabel(p.fy,p.q)} ${PRODS.find(x=>x.k===p.prod).name} budget:</b> accrued ${inr(p.accrued)} · released ${inr(p.released)} · use window ${fmtD(p.useFrom)} – ${fmtD(p.useTo)} · balance <b>${inr(p.balance)}</b> · gifting ${inr(p.gift)} of ${inr(p.giftCap)} cap${own&&own.pot===pid&&own.status!=='Draft'&&own.status!=='Rejected'?' (balances include this activity)':''}`;};
+    $('aInfo').innerHTML=`<b>${qLabel(p.fy,p.q)} ${PRODS.find(x=>x.k===p.prod).name} budget:</b> accrued ${inr(p.accrued)} · released ${inr(p.released)} · use window ${fmtD(p.useFrom)} – ${fmtD(p.useTo)} · balance <b>${inr(p.balance)}</b> · gifting ${inr(p.gift)} of ${inr(p.giftCap)} cap${own&&own.pot===pid&&own.status!=='Rejected'?' (balances include this activity)':''}`;};
   info();
   $('aProd').onchange=()=>{$('aPot').innerHTML=potOptions($('aProd').value,defaultPot($('aProd').value));info();};
   $('aPot').onchange=info;
   $('aStatus').onchange=()=>{const s=$('aStatus').value;if(s==='Sent to SAIL'&&!$('aSub').value)$('aSub').value=S.asOf;if(s==='Approved by SAIL'){if(!$('aApp').value)$('aApp').value=S.asOf;if(!$('aAppAmt').value)$('aAppAmt').value=$('aEst').value;}};
+  bindDocs(document.getElementById('modalRoot'));
   $('aCancel').onclick=closeModal; $('mbg').onclick=e=>{if(e.target.id==='mbg')closeModal();};
   if($('aDel')) $('aDel').onclick=async()=>{if($('aDel').dataset.c!=='1'){$('aDel').dataset.c='1';$('aDel').textContent='Click again to delete';return;}try{await api('/api/save',{action:'delete_activity',id});S.acts=S.acts.filter(x=>x.id!==id);closeModal();toast('Activity deleted');render();}catch(e){handleWriteErr(e);}};
   if($('aSave')) $('aSave').onclick=async()=>{
     const n={title:$('aTitle').value.trim(),category:$('aCat').value,prod:$('aProd').value,pot:$('aPot').value,vendor:$('aVendor').value.trim(),plannedOn:$('aPlan').value,
       estAmount:+$('aEst').value||0,status:$('aStatus').value,sailRef:$('aRef').value.trim(),submittedOn:$('aSub').value,approvedOn:$('aApp').value,
-      approvedAmount:$('aAppAmt').value===''?null:+$('aAppAmt').value,actualAmount:$('aAct').value===''?null:+$('aAct').value,invoiceNo:$('aInv').value.trim(),invoiceDate:$('aInvD').value,claimStatus:$('aClaim').value,claimSubmittedOn:$('aClaimD').value,remarks:$('aRem').value.trim(),updatedAt:new Date().toISOString()};
+      approvedAmount:$('aAppAmt').value===''?null:+$('aAppAmt').value,actualAmount:$('aAct').value===''?null:+$('aAct').value,invoiceNo:$('aInv').value.trim(),invoiceDate:$('aInvD').value,claimStatus:$('aClaim').value,claimSubmittedOn:$('aClaimD').value,cnNo:$('aCnNo').value.trim(),cnDate:$('aCnD').value,cnAmount:$('aCnAmt').value===''?null:+$('aCnAmt').value,remarks:$('aRem').value.trim(),updatedAt:new Date().toISOString()};
     const {errs,warns}=validate(n,id);
     if(errs.length){$('aErr').textContent=errs.join('\n');$('aSave').textContent='Save';delete $('aSave').dataset.ok;return;}
     const sig=warns.join('|');
     if(warns.length && $('aSave').dataset.ok!==sig){$('aErr').innerHTML='<span style="color:var(--warn)">'+esc(warns.join('\n'))+'</span>';$('aSave').dataset.ok=sig;$('aSave').textContent='Save anyway';return;}
     $('aSave').disabled=true;
-    try{ const j=await api('/api/save',{action:'activity',id:id||undefined,data:{...n,createdAt:a.createdAt||''}}); const row={...n,id:j.id,createdAt:a.createdAt||n.updatedAt}; S.acts=[...S.acts.filter(x=>x.id!==j.id),row]; closeModal(); toast('Saved'); render(); load(); }
+    try{ const j=await api('/api/save',{action:'activity',id:id||undefined,data:{...n,createdAt:a.createdAt||''}}); const row={...n,id:j.id,createdAt:a.createdAt||n.updatedAt}; S.acts=[...S.acts.filter(x=>x.id!==j.id),row]; closeModal(); render(); if(!id){openAct(j.id);toast('Saved — you can attach documents now');}else toast('Saved'); load(); }
     catch(e){$('aSave').disabled=false;if(e.message!=='Signed out')$('aErr').textContent=e.message;}
   };
 }
 function closeModal(){document.getElementById('modalRoot').innerHTML='';}
-function amountOf(n){return n.status==='Completed'?(n.actualAmount??n.approvedAmount??n.estAmount):n.status==='Approved by SAIL'?(n.approvedAmount??n.estAmount):n.estAmount;}
 function validate(n,id){
   const e=[], w=[];
   if(!n.title) e.push('Enter an activity title.');
@@ -710,9 +785,9 @@ function validate(n,id){
   // budget checks, excluding this activity's own existing claim
   const p=potFromId(n.pot);
   const old=id?S.acts.find(x=>x.id===id):null;
-  const oldAmt = old&&old.pot===n.pot&&!['Draft','Rejected'].includes(old.status)?(+amountOf(old)||0):0;
-  const oldGift = old&&old.pot===n.pot&&isGift(old.category)&&!['Draft','Rejected'].includes(old.status)?oldAmt:0;
-  const amt=+amountOf(n)||0;
+  const oldAmt = old&&old.pot===n.pot?committedAmt(old):0;
+  const oldGift = old&&old.pot===n.pot&&isGift(old.category)?oldAmt:0;
+  const amt=committedAmt(n);
   if(p.expired) w.push(`The ${qLabel(p.fy,p.q)} budget could only be used until ${fmtD(p.useTo)} — that window has closed.`);
   const avail=p.balance+oldAmt;
   const pname=`${qLabel(p.fy,p.q)} ${PRODS.find(x=>x.k===p.prod).name}`;
@@ -740,14 +815,15 @@ function bind(){
   });
   document.querySelectorAll('[data-rel]').forEach(sel=>sel.onchange=async()=>{const r={...(S.cfg.releases||{})};if(sel.value==='normal')delete r[sel.dataset.rel];else r[sel.dataset.rel]=sel.value;S.cfg.releases=r;render();try{const j=await api('/api/save',{action:'releases',month:sel.dataset.rel,mode:sel.value});S.cfg.releases=j.releases;}catch(e){handleWriteErr(e);}});
   document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=e=>{e.preventDefault();openAct(b.dataset.edit);});
+  document.querySelectorAll('[data-docs]').forEach(b=>b.onclick=()=>{const [k,r,l]=b.dataset.docs.split('|');openDocs(k,r,l);});
   const g=id=>document.getElementById(id);
   if(g('newAct')) g('newAct').onclick=()=>openAct(null);
   if(g('fProd')) g('fProd').onchange=e=>{S.actFilter.prod=e.target.value;render();};
   if(g('fStatus')) g('fStatus').onchange=e=>{S.actFilter.status=e.target.value;render();};
   if(g('fQ')) g('fQ').oninput=e=>{S.actFilter.q=e.target.value;clearTimeout(S.qt);S.qt=setTimeout(()=>{render();const f=g('fQ');f.focus();f.setSelectionRange(f.value.length,f.value.length);},300);};
   if(g('copyCsv')) g('copyCsv').onclick=async()=>{
-    const head=['Type of expense','Category','Product','Budget quarter','Vendor','Planned','Status','SAIL ref','Sent on','Approved on','Estimated (excl GST)','Approved amt','Invoice amt (excl GST)','Invoice no','Invoice date','Claim status','Remarks'];
-    const rows=S.acts.map(a=>{const[,fy,q]=a.pot.split('_');return [a.title,a.category,PRODS.find(p=>p.k===a.prod).name,qLabel(+fy,+q.slice(1)),a.vendor,a.plannedOn,a.status,a.sailRef,a.submittedOn,a.approvedOn,a.estAmount,a.approvedAmount??'',a.actualAmount??'',a.invoiceNo,a.invoiceDate,a.claimStatus,a.remarks];});
+    const head=['Type of expense','Category','Product','Budget quarter','Vendor','Planned','Status','SAIL ref','Sent on','Approved on','Estimated (excl GST)','Approved amt','Invoice amt (excl GST)','Invoice no','Invoice date','Claim status','Credit note no','Credit note date','Credit note amt','Documents','Remarks'];
+    const rows=S.acts.map(a=>{const[,fy,q]=a.pot.split('_');return [a.title,a.category,PRODS.find(p=>p.k===a.prod).name,qLabel(+fy,+q.slice(1)),a.vendor,a.plannedOn,a.status,a.sailRef,a.submittedOn,a.approvedOn,a.estAmount,a.approvedAmount??'',a.actualAmount??'',a.invoiceNo,a.invoiceDate,a.claimStatus,a.cnNo||'',a.cnDate||'',a.cnAmount??'',filesFor('activity',a.id).length,a.remarks];});
     const csv=[head,...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
     try{await navigator.clipboard.writeText(csv);toast('Copied — paste into Excel');}catch(_){toast('Copy was blocked by the browser');}
   };

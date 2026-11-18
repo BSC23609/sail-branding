@@ -18,6 +18,10 @@ export const DEFAULT_CFG = {
   notify: { budgetWa: [], claimsWa: [], pendingDays: 7, claimDays: 30, warnDays: 7 }
 };
 
+export const DOC_TYPES = ['Invoice', 'Creative / artwork', 'SAIL approval', 'Credit note', 'Photo / proof', 'SAIL invoice', 'Other'];
+export const blobAccess = () => (process.env.BLOB_ACCESS === 'public' ? 'public' : 'private');
+export const blobReady = () => !!process.env.BLOB_READ_WRITE_TOKEN;
+
 let _ready = null;
 export function ensureSchema() {
   if (!_ready) _ready = (async () => {
@@ -52,6 +56,20 @@ export function ensureSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_by TEXT
     )`;
+    await sql`CREATE TABLE IF NOT EXISTS sail_files (
+      id SERIAL PRIMARY KEY,
+      kind TEXT NOT NULL,                            -- activity | lifting
+      ref TEXT NOT NULL,                             -- activity id, or HR_2026-04 style for lifting
+      doc_type TEXT NOT NULL,
+      name TEXT NOT NULL,
+      size BIGINT NOT NULL DEFAULT 0,
+      content_type TEXT,
+      url TEXT NOT NULL,
+      pathname TEXT NOT NULL,
+      uploaded_by TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`;
+    await sql`CREATE INDEX IF NOT EXISTS sail_files_ref ON sail_files(kind, ref)`;
     await sql`INSERT INTO sail_config (id, data) VALUES (1, ${JSON.stringify(DEFAULT_CFG)}::jsonb) ON CONFLICT (id) DO NOTHING`;
     // First admin comes from env vars, only while the user table is empty.
     const [{ n }] = await sql`SELECT COUNT(*)::int AS n FROM sail_users`;

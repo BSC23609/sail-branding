@@ -20,7 +20,11 @@ Static page + 4 Vercel serverless routes, data in Neon Postgres. Live at **https
    | `ADMIN_PASSWORD` | that admin's first password (change it after signing in) |
 
    Tables are created automatically on first load. The first admin is created only while there are no users.
-4. **Domain** – Vercel → Settings → Domains → add `sail.bharatsteels.in`. At your DNS provider add
+4. **File storage (documents)** – Vercel → Storage → Create → **Blob**, choose **Private** access, and connect it
+   to this project. That adds `BLOB_READ_WRITE_TOKEN` automatically; redeploy afterwards. Invoices, creatives,
+   SAIL approvals and credit notes are uploaded straight from the browser (up to 100 MB each) and opened only
+   through the app after sign-in (short-lived signed links). For a public store instead, set `BLOB_ACCESS=public`.
+5. **Domain** – Vercel → Settings → Domains → add `sail.bharatsteels.in`. At your DNS provider add
    a **CNAME** record: name `sail`, value `cname.vercel-dns.com` (use the exact value Vercel shows).
 
 ## Roles
@@ -39,5 +43,7 @@ api/auth.js   POST login | logout | me | change_password
 api/data.js   GET  settings, lifting, activities
 api/save.js   POST lifting | releases | config | activity | delete_activity
 api/users.js  POST list | add | update | reset_password | delete   (admins)
-public/       index.html (the tracker), exceljs.min.js (Excel export, bundled)
+api/upload.js POST upload token for direct browser → Vercel Blob uploads (editors)
+api/files.js  GET ?id= open a document · POST register | delete
+public/       index.html (the tracker), exceljs.min.js (Excel export), blob-client.js (upload helper), both bundled
 ```
