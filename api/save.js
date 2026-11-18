@@ -20,6 +20,7 @@ function cleanActivity(a) {
     actualAmount: num(a.actualAmount), invoiceNo: str(a.invoiceNo, 100), invoiceDate: date(a.invoiceDate),
     claimStatus: CLAIMS.includes(a.claimStatus) ? a.claimStatus : 'Not claimed', claimSubmittedOn: date(a.claimSubmittedOn),
     cnNo: str(a.cnNo, 100), cnDate: date(a.cnDate), cnAmount: num(a.cnAmount),
+    giftReason: str(a.giftReason, 1000), giftSailRef: str(a.giftSailRef, 100),
     remarks: str(a.remarks, 1000), createdAt: str(a.createdAt, 40), updatedAt: new Date().toISOString()
   };
   const errs = [];
@@ -42,7 +43,8 @@ function cleanConfig(c) {
   return {
     rate: Math.max(0, +c.rate || 0), giftCapPct: Math.min(100, Math.max(0, +c.giftCapPct || 0)), lapse: !!c.lapse,
     releases, categories: cats.length ? cats : DEFAULT_CFG.categories,
-    notify: { budgetWa: wa(n.budgetWa), claimsWa: wa(n.claimsWa), pendingDays: int(n.pendingDays, 7), claimDays: int(n.claimDays, 30), warnDays: int(n.warnDays, 7) }
+    notify: { budgetWa: wa(n.budgetWa), claimsWa: wa(n.claimsWa), pendingDays: int(n.pendingDays, 7), claimDays: int(n.claimDays, 30), warnDays: int(n.warnDays, 7) },
+    terms: str(c.terms, 20000), termsUpdatedBy: str(c.termsUpdatedBy, 120), termsUpdatedAt: str(c.termsUpdatedAt, 40)
   };
 }
 

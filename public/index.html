@@ -106,6 +106,7 @@ a.btn.wa{background:#1e8e4e;color:#fff;text-decoration:none;display:inline-block
   <div class="ctrls">
     <label>Financial year</label><select id="fySel"></select>
     <label>As of</label><input type="date" id="asOf">
+    <button id="bell" type="button" title="Notifications" style="position:relative;background:none;border:1px solid #2c4f91;color:#fff;border-radius:6px;padding:5px 10px;font:inherit;cursor:pointer">🔔<span class="bn" style="display:none;position:absolute;top:-7px;right:-7px;background:#d93025;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 6px">0</span></button>
     <span id="who" style="font-size:12px;opacity:.85;margin-left:6px"></span>
     <button id="logout" type="button" style="background:none;border:1px solid #2c4f91;color:#fff;border-radius:6px;padding:6px 10px;font:inherit;font-size:12px;cursor:pointer">Sign out</button>
   </div>
@@ -115,6 +116,7 @@ a.btn.wa{background:#1e8e4e;color:#fff;text-decoration:none;display:inline-block
   <button data-t="stmt">Quarter statement</button>
   <button data-t="lift">Lifting entry</button>
   <button data-t="act">Branding activities</button>
+  <button data-t="terms">Terms &amp; conditions</button>
   <button data-t="set">Settings &amp; rules</button>
 </nav>
 <main id="main"><div class="empty">Loading…</div></main>
@@ -220,23 +222,60 @@ function daysBetween(a,b){return Math.round((b-a)/86400000);}
 function alerts(){
   const N={...DEFAULT_NOTIFY,...(S.cfg.notify||{})}, now=asOfDate(), out=[];
   const pname=p=>`${PRODS.find(x=>x.k===p.prod).name} ${qLabel(p.fy,p.q)}`;
+  const days=n=>n===1?'1 day':n+' days';
   PRODS.forEach(P=>[S.fy-1,S.fy].forEach(fy=>[1,2,3,4].forEach(q=>{
     const p=pot(P.k,fy,q); if(!p.accrued) return;
     const toStart=daysBetween(now,p.useFrom), toEnd=daysBetween(now,p.useTo);
-    if(now>=p.useFrom && toStart>=-7 && !p.expired) out.push({team:'Budget',sev:'c-ok',t:`${pname(p)} budget is now usable — ${inr(Math.max(0,p.balance))} available until ${fmtD(p.useTo)}.`});
-    else if(now<p.useFrom && toStart<=N.warnDays && p.accrued>p.released) out.push({team:'Budget',sev:'c-info',t:`${pname(p)} budget of ${inr(p.accrued-p.released)} unlocks on ${fmtD(p.useFrom)} (in ${toStart} days) — plan activities and send them to SAIL.`});
-    if(now>=p.useFrom && !p.expired && p.balance>0 && toEnd<=N.warnDays && toEnd>=0) out.push({team:'Budget',sev:'c-warn',t:`${pname(p)}: ${inr(p.balance)} still unused and its spending quarter ends ${fmtD(p.useTo)} (${toEnd} days).`});
-    if(p.balance<0 && !p.expired) out.push({team:'Budget',sev:'c-bad',t:`${pname(p)} is over budget by ${inr(-p.balance)}.`});
-    if(p.giftCap>0 && p.gift>=0.8*p.giftCap && !p.expired) out.push({team:'Budget',sev:p.gift>p.giftCap?'c-bad':'c-warn',t:`${pname(p)}: gifting at ${inr(p.gift)} of ${inr(p.giftCap)} cap (${Math.round(p.gift/p.giftCap*100)}%).`});
+    // 1. use the budget
+    if(now<p.useFrom && toStart<=N.warnDays && p.accrued>p.released)
+      out.push({kind:'use',team:'Budget',sev:'c-info',t:`${pname(p)} budget of ${inr(p.accrued-p.released)} unlocks on ${fmtD(p.useFrom)} (in ${days(toStart)}). Plan activities and get SAIL approval now.`});
+    if(p.released>0 && now<=p.useTo && p.balance>0){
+      const urgent=toEnd<=N.warnDays;
+      out.push({kind:'use',team:'Budget',sev:urgent?'c-warn':'c-ok',t:`Use ${inr(p.balance)} from ${pname(p)} before ${fmtD(p.useTo)} (${days(toEnd)} left).`});
+    }
+    if(now>p.useTo && p.balance>0 && daysBetween(p.useTo,now)<=90)
+      out.push({kind:'use',team:'Budget',sev:'c-bad',t:`${pname(p)}: spending quarter ended on ${fmtD(p.useTo)} with ${inr(p.balance)} unused.`});
+    if(p.balance<0 && !p.expired)
+      out.push({kind:'use',team:'Budget',sev:'c-bad',t:`${pname(p)} is over budget by ${inr(-p.balance)}.`});
+    // 2. gifting limit
+    if(p.giftCap>0 && p.gift>p.giftCap+0.5){
+      const gifts=p.acts.filter(a=>isGift(a.category)&&a.status!=='Rejected');
+      const missing=gifts.filter(a=>!(a.giftReason||'').trim());
+      out.push({kind:'gift',team:'Budget',sev:missing.length?'c-bad':'c-warn',
+        t:`${pname(p)}: gifting ${inr(p.gift)} is ${inr(p.gift-p.giftCap)} over the ${S.cfg.giftCapPct}% limit (${inr(p.giftCap)}). `+(missing.length?`Add the reason and SAIL approval for: ${missing.map(a=>'“'+a.title+'”').join(', ')}.`:`Reason recorded${gifts.some(a=>!(a.giftSailRef||'').trim())?'; SAIL approval ref. still missing':''}.`),
+        id:(missing[0]||gifts[0])?.id});
+    } else if(p.giftCap>0 && p.gift>=0.8*p.giftCap && now<=p.useTo)
+      out.push({kind:'gift',team:'Budget',sev:'c-warn',t:`${pname(p)}: gifting at ${inr(p.gift)} — ${Math.round(p.gift/p.giftCap*100)}% of the ${S.cfg.giftCapPct}% limit (${inr(p.giftCap)}).`});
   })));
   S.acts.forEach(a=>{
-    if(a.status==='Sent to SAIL' && a.submittedOn){const d=daysBetween(new Date(a.submittedOn),now);if(d>=N.pendingDays)out.push({team:'Budget',sev:'c-warn',t:`“${a.title}” has been waiting for SAIL approval for ${d} days${a.sailRef?' (ref '+a.sailRef+')':''}.`,id:a.id});}
-    if(a.status==='Completed' && a.claimStatus!=='Claim received'){
-      if(a.claimStatus==='Claim submitted to SAIL'){const d=a.claimSubmittedOn?daysBetween(new Date(a.claimSubmittedOn),now):null;if(d===null||d>=N.claimDays)out.push({team:'Claims',sev:'c-warn',t:`Claim for “${a.title}” (${inr(a.actualAmount)}) submitted ${d===null?'— date not entered':d+' days ago'}, not yet received.`,id:a.id});}
-      else out.push({team:'Claims',sev:'c-bad',t:`Raise claim for “${a.title}” — invoice ${a.invoiceNo||'(no.)'} ${inr(a.actualAmount)}; status: ${a.claimStatus||'Not claimed'}.`,id:a.id});
+    if(a.status==='Rejected') return;
+    const p=potFromId(a.pot);
+    // SAIL approval pending
+    if(a.status==='Sent to SAIL' && a.submittedOn){const d=daysBetween(new Date(a.submittedOn),now);if(d>=N.pendingDays)out.push({kind:'sail',team:'Budget',sev:'c-warn',t:`“${a.title}” has been waiting for SAIL approval for ${days(d)}${a.sailRef?' (ref '+a.sailRef+')':''}.`,id:a.id});}
+    // 3. claim before the spending quarter ends
+    const invoiced = a.status==='Completed' || ((+a.actualAmount||0)>0 && (a.invoiceNo||'').trim());
+    if(invoiced && !['Claim submitted to SAIL','Claim received'].includes(a.claimStatus)){
+      const toEnd=daysBetween(now,p.useTo);
+      const sev = toEnd<0?'c-bad':toEnd<=N.warnDays?'c-bad':'c-warn';
+      const when = toEnd<0?`the claim deadline (${fmtD(p.useTo)}) has passed`:`claim before ${fmtD(p.useTo)} (${days(toEnd)} left)`;
+      out.push({kind:'claim',team:'Claims',sev,t:`Claim ${inr(a.actualAmount||committedAmt(a))} for “${a.title}”${a.invoiceNo?' (inv. '+a.invoiceNo+')':''} — ${when}. Status: ${a.claimStatus||'Not claimed'}.`,id:a.id});
     }
+    if(a.claimStatus==='Claim submitted to SAIL'){const d=a.claimSubmittedOn?daysBetween(new Date(a.claimSubmittedOn),now):null;if(d===null||d>=N.claimDays)out.push({kind:'claim',team:'Claims',sev:'c-warn',t:`Claim for “${a.title}” (${inr(a.actualAmount||committedAmt(a))}) submitted ${d===null?'(date not entered)':days(d)+' ago'} — not yet received.`,id:a.id});}
   });
-  return out;
+  const rank={'c-bad':0,'c-warn':1,'c-info':2,'c-ok':3};
+  return out.sort((x,y)=>rank[x.sev]-rank[y.sev]);
+}
+function bellCount(){ return alerts().filter(a=>a.sev==='c-bad'||a.sev==='c-warn').length; }
+function updateBell(){ const b=document.getElementById('bell'); if(!b||!S.me) return; const n=bellCount(); b.querySelector('.bn').textContent=n; b.querySelector('.bn').style.display=n?'':'none'; }
+function openBell(){
+  const al=alerts(), kinds={use:'Use the budget',claim:'Claims to raise',gift:'Gifting limit',sail:'SAIL approvals'};
+  const groups=Object.keys(kinds).map(k=>({k,items:al.filter(a=>a.kind===k)})).filter(g=>g.items.length);
+  document.getElementById('modalRoot').innerHTML=`<div class="modal-bg" id="mbg"><div class="modal" style="max-width:760px">
+    <h2>Notifications <span class="hint" style="font-weight:400">· as of ${fmtD(asOfDate())}</span></h2>
+    ${groups.length?groups.map(g=>`<h3 style="margin-top:14px">${kinds[g.k]} (${g.items.length})</h3><table><tbody>${g.items.map(x=>`<tr><td style="width:24px"><span class="chip ${x.sev}">●</span></td><td>${esc(x.t)}</td><td style="width:70px">${x.id?`<button class="btn sec sm" data-bell-open="${x.id}">Open</button>`:''}</td></tr>`).join('')}</tbody></table>`).join(''):'<div class="empty">Nothing needs attention right now.</div>'}
+    <div class="toolbar" style="margin:16px 0 0"><span class="hint">Red = act now · amber = coming up · blue/green = for information. Reminder lead time is set under Settings.</span><span class="sp"></span><button class="btn sec" id="bClose">Close</button></div></div></div>`;
+  document.getElementById('bClose').onclick=closeModal; document.getElementById('mbg').onclick=e=>{if(e.target.id==='mbg')closeModal();};
+  document.querySelectorAll('[data-bell-open]').forEach(b=>b.onclick=()=>{closeModal();openAct(b.dataset.bellOpen);});
 }
 
 /* ---------- db ---------- */
@@ -300,6 +339,7 @@ function setupHeader(){
   for(let y=cur+1;y>=2025;y--){const o=document.createElement('option');o.value=y;o.textContent=fyLabel(y);if(y===cur)o.selected=true;sel.appendChild(o);}
   sel.onchange=()=>{S.fy=+sel.value;render();};
   const a=document.getElementById('asOf');a.value=S.asOf;a.onchange=()=>{S.asOf=a.value||todayStr();a.value=S.asOf;render();};
+  document.getElementById('bell').onclick=openBell;
   document.getElementById('tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.tab=b.dataset.t;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));render();};
 }
 
@@ -311,7 +351,8 @@ function render(){
   if(S.err) pre+=`<div class="banner bad">${esc(S.err)}</div>`;
   if(S.readonly) pre+='<div class="banner warn">View-only access: you can see the figures but not change them. Ask an admin for editor access.</div>';
   if(S.asOf!==todayStr()) pre+=`<div class="banner warn">Showing the budget position as of <b>${fmtD(asOfDate())}</b> (not today). Clear the “As of” date to return to today.</div>`;
-  const body = {dash:renderDash,stmt:renderStmt,lift:renderLift,act:renderActs,set:renderSettings}[S.tab]();
+  updateBell();
+  const body = {dash:renderDash,stmt:renderStmt,lift:renderLift,act:renderActs,terms:renderTerms,set:renderSettings}[S.tab]();
   m.innerHTML=pre+body;
   bind();
 }
@@ -368,7 +409,7 @@ function renderDash(){
   const pend = upcoming.length?`<table><thead><tr><th>Activity</th><th>Product</th><th>Budget from</th><th>Sent on</th><th class="n">Amount</th></tr></thead><tbody>${upcoming.slice(0,8).map(a=>{const P=PRODS.find(p=>p.k===a.prod);const[,fy,q]=a.pot.split('_');return `<tr><td>${esc(a.title)}${isGift(a.category)?' <span class="chip c-info">Gifting</span>':''}</td><td class="${P.cls}">${P.name}</td><td>${qLabel(+fy,+q.slice(1))}</td><td>${a.submittedOn?fmtD(new Date(a.submittedOn)):'—'}</td><td class="n">${inr(a.estAmount)}</td></tr>`;}).join('')}</tbody></table>`:'<div class="empty">Nothing waiting on SAIL right now.</div>';
 
   const al=alerts();
-  const alHtml=`<div class="card" style="margin-bottom:14px"><h2>Alerts <span class="hint" style="font-weight:400">· what the budget and claims teams are told</span></h2>${al.length?`<table><tbody>${al.map(x=>`<tr><td style="width:90px"><span class="chip ${x.team==='Claims'?'c-info':'c-mute'}">${x.team} team</span></td><td><span class="chip ${x.sev}" style="margin-right:6px">●</span>${esc(x.t)}</td><td style="width:70px">${x.id?`<button class="btn sec sm" data-edit="${x.id}">Open</button>`:''}</td></tr>`).join('')}</tbody></table>`:'<div class="empty" style="padding:12px">No alerts right now.</div>'}${al.length?`<div class="toolbar" style="margin:12px 0 0;flex-wrap:wrap">${waButtons('Budget',al)} ${waButtons('Claims',al)}</div>`:''}</div>`;
+  const alHtml=`<div class="card" style="margin-bottom:14px"><h2>Alerts <span class="hint" style="font-weight:400">· use the budget, claims, gifting limit, SAIL approvals</span></h2>${al.length?`<table><tbody>${al.map(x=>`<tr><td style="width:90px"><span class="chip ${x.team==='Claims'?'c-info':'c-mute'}">${x.team} team</span></td><td><span class="chip ${x.sev}" style="margin-right:6px">●</span>${esc(x.t)}</td><td style="width:70px">${x.id?`<button class="btn sec sm" data-edit="${x.id}">Open</button>`:''}</td></tr>`).join('')}</tbody></table>`:'<div class="empty" style="padding:12px">No alerts right now.</div>'}${al.length?`<div class="toolbar" style="margin:12px 0 0;flex-wrap:wrap">${waButtons('Budget',al)} ${waButtons('Claims',al)}</div>`:''}</div>`;
   return alHtml+`<div class="grid g2">${cards}</div>
   <div class="card" style="margin-top:14px"><h2>Monthly lifting — ${fyLabel(S.fy)}</h2>${chart()}</div>
   <div class="grid" style="margin-top:14px">${qt}</div>
@@ -505,6 +546,45 @@ async function loadUsers(){
       if(q('.uD')) q('.uD').onclick=async()=>{const b=q('.uD');if(b.dataset.c!=='1'){b.dataset.c='1';b.textContent='Click again';return;}try{await api('/api/users',{action:'delete',id});toast('User deleted');loadUsers();}catch(e){toast(e.message);}};
     });
   }catch(e){box.innerHTML=`<div class="err">${esc(e.message)}</div>`;}
+}
+
+/* ---------- terms & conditions ---------- */
+const DEFAULT_TERMS = `SAIL Branding Support — Terms & Conditions (Bharat Steel (Chennai) Pvt. Ltd.)
+
+1. Earning the budget
+Branding support is earned at ₹{rate} per tonne of HR Coil and Structural lifted from SAIL. HR Coil and Structural budgets are earned and tracked separately.
+
+2. When the budget can be used
+The budget builds up month by month during a quarter. It can be used only after that quarter ends, in the following quarter (Apr–Jun lifting is spent in Jul–Sep, Jul–Sep in Oct–Dec, Oct–Dec in Jan–Mar, Jan–Mar in Apr–Jun of the next year). It must not be used before it has been earned.
+
+3. Exceptions
+SAIL may allow exceptions in writing. April 2026 lifting was approved for early use because of finance issues; from then on the quarterly process applies.
+
+4. SAIL approval
+Every branding activity needs SAIL's approval before it is carried out. Keep the SAIL approval reference and letter with the activity.
+
+5. Gifting items
+Gifting items (T-shirts, stationery and similar) may use at most {gift}% of a quarter's budget. Anything above that needs a written reason and SAIL's approval for the excess.
+
+6. Claims
+Claims are made on the invoice amount without GST, with the invoice and proof of the branding attached. Raise each claim before the end of the quarter in which that budget is used.
+
+7. Records
+Invoices, creatives, SAIL approvals and credit notes are kept against each activity in this tracker.`;
+function termsText(){ return (S.cfg.terms||DEFAULT_TERMS).replace(/\{rate\}/g,S.cfg.rate).replace(/\{gift\}/g,S.cfg.giftCapPct); }
+function renderTerms(){
+  const admin=S.me?.role==='admin';
+  const paras=termsText().split(/\n\s*\n/).map(b=>{const lines=b.split('\n');const head=/^\d+\.\s/.test(lines[0])||lines.length>1;
+    return head?`<p style="margin:0 0 12px"><b>${esc(lines[0])}</b>${lines.length>1?'<br>'+lines.slice(1).map(esc).join('<br>'):''}</p>`:`<p style="margin:0 0 12px">${esc(b)}</p>`;}).join('');
+  return `<div class="card" style="max-width:900px">
+    <div class="toolbar"><h2 style="margin:0">Terms &amp; conditions</h2><span class="sp"></span>${admin?'<button class="btn sec sm" id="tEdit">Edit</button>':''}</div>
+    ${S.cfg.terms?'':'<div class="banner warn">This is a starting draft based on the rules agreed so far. An admin should check it against SAIL\'s scheme letter and edit as needed.</div>'}
+    <div id="tView" style="line-height:1.6">${paras}</div>
+    ${S.cfg.termsUpdatedBy?`<div class="hint">Last updated by ${esc(S.cfg.termsUpdatedBy)}${S.cfg.termsUpdatedAt?' on '+fmtD(new Date(S.cfg.termsUpdatedAt)):''}.</div>`:''}
+    ${admin?`<div id="tEditBox" style="display:none"><div class="hint" style="margin-bottom:6px">Leave a blank line between sections. {rate} and {gift} are filled in from Settings.</div>
+      <textarea id="tText" rows="24" style="width:100%;border:1px solid #cdd3dd;border-radius:6px;padding:10px;font:inherit">${esc(S.cfg.terms||DEFAULT_TERMS)}</textarea>
+      <div class="toolbar" style="margin-top:10px"><button class="btn" id="tSave">Save terms</button><button class="btn sec" id="tCancel">Cancel</button>${S.cfg.terms?'<button class="btn danger sm" id="tReset">Reset to default draft</button>':''}</div></div>`:''}
+  </div>`;
 }
 
 /* ---------- quarter statement (sheet format) ---------- */
@@ -733,6 +813,13 @@ function openAct(id){
       <div class="f"><label>Invoice amount without GST (₹)</label><input type="number" min="0" id="aAct" value="${a.actualAmount??''}" ${ro}></div>
       <div class="f"><label>Claim submitted on</label><input type="date" id="aClaimD" value="${esc(a.claimSubmittedOn)}" ${ro}></div>
       <div class="f"><label>Claim status</label><select id="aClaim" ${ro}>${CLAIMS.map(c=>`<option ${c===(a.claimStatus||'Not claimed')?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="f w3 giftBox" style="display:${isGift(a.category)?'':'none'};background:var(--warnbg);border-radius:8px;padding:10px 12px">
+        <div style="font-weight:600;color:var(--warn);margin-bottom:6px">Gifting limit — ${S.cfg.giftCapPct}% of the quarter's budget</div>
+        <div class="form" style="grid-template-columns:2fr 1fr">
+          <div class="f"><label>Reason for exceeding the gifting limit (required only if this quarter's gifting goes over ${S.cfg.giftCapPct}%)</label><textarea id="aGiftWhy" rows="2" ${ro} placeholder="e.g. Dealer meet T-shirts approved by SAIL regional office as a one-time exception">${esc(a.giftReason)}</textarea></div>
+          <div class="f"><label>SAIL approval ref. for the excess</label><input id="aGiftRef" value="${esc(a.giftSailRef)}" ${ro}></div>
+        </div>
+      </div>
       <div class="f"><label>Credit note no.</label><input id="aCnNo" value="${esc(a.cnNo)}" ${ro}></div>
       <div class="f"><label>Credit note date</label><input type="date" id="aCnD" value="${esc(a.cnDate)}" ${ro}></div>
       <div class="f"><label>Credit note amount (₹)</label><input type="number" min="0" id="aCnAmt" value="${a.cnAmount??''}" ${ro}></div>
@@ -754,6 +841,7 @@ function openAct(id){
   info();
   $('aProd').onchange=()=>{$('aPot').innerHTML=potOptions($('aProd').value,defaultPot($('aProd').value));info();};
   $('aPot').onchange=info;
+  $('aCat').onchange=()=>{document.querySelector('.giftBox').style.display=isGift($('aCat').value)?'':'none';};
   $('aStatus').onchange=()=>{const s=$('aStatus').value;if(s==='Sent to SAIL'&&!$('aSub').value)$('aSub').value=S.asOf;if(s==='Approved by SAIL'){if(!$('aApp').value)$('aApp').value=S.asOf;if(!$('aAppAmt').value)$('aAppAmt').value=$('aEst').value;}};
   bindDocs(document.getElementById('modalRoot'));
   $('aCancel').onclick=closeModal; $('mbg').onclick=e=>{if(e.target.id==='mbg')closeModal();};
@@ -761,7 +849,7 @@ function openAct(id){
   if($('aSave')) $('aSave').onclick=async()=>{
     const n={title:$('aTitle').value.trim(),category:$('aCat').value,prod:$('aProd').value,pot:$('aPot').value,vendor:$('aVendor').value.trim(),plannedOn:$('aPlan').value,
       estAmount:+$('aEst').value||0,status:$('aStatus').value,sailRef:$('aRef').value.trim(),submittedOn:$('aSub').value,approvedOn:$('aApp').value,
-      approvedAmount:$('aAppAmt').value===''?null:+$('aAppAmt').value,actualAmount:$('aAct').value===''?null:+$('aAct').value,invoiceNo:$('aInv').value.trim(),invoiceDate:$('aInvD').value,claimStatus:$('aClaim').value,claimSubmittedOn:$('aClaimD').value,cnNo:$('aCnNo').value.trim(),cnDate:$('aCnD').value,cnAmount:$('aCnAmt').value===''?null:+$('aCnAmt').value,remarks:$('aRem').value.trim(),updatedAt:new Date().toISOString()};
+      approvedAmount:$('aAppAmt').value===''?null:+$('aAppAmt').value,actualAmount:$('aAct').value===''?null:+$('aAct').value,invoiceNo:$('aInv').value.trim(),invoiceDate:$('aInvD').value,claimStatus:$('aClaim').value,claimSubmittedOn:$('aClaimD').value,cnNo:$('aCnNo').value.trim(),cnDate:$('aCnD').value,cnAmount:$('aCnAmt').value===''?null:+$('aCnAmt').value,giftReason:$('aGiftWhy').value.trim(),giftSailRef:$('aGiftRef').value.trim(),remarks:$('aRem').value.trim(),updatedAt:new Date().toISOString()};
     const {errs,warns}=validate(n,id);
     if(errs.length){$('aErr').textContent=errs.join('\n');$('aSave').textContent='Save';delete $('aSave').dataset.ok;return;}
     const sig=warns.join('|');
@@ -781,13 +869,20 @@ function validate(n,id){
   if(n.status==='Approved by SAIL'&&!n.approvedOn) e.push('Enter the date SAIL approved it.');
   if(n.status==='Completed'&&!n.approvedOn) e.push('An activity can be completed only after SAIL approval — enter the SAIL approval date.');
   if(n.status==='Completed'&&!(n.actualAmount>0)) e.push('Enter the invoice amount (without GST) for a completed activity.');
-  if(n.status==='Draft'||n.status==='Rejected') return {errs:e,warns:w};
   // budget checks, excluding this activity's own existing claim
   const p=potFromId(n.pot);
   const old=id?S.acts.find(x=>x.id===id):null;
   const oldAmt = old&&old.pot===n.pot?committedAmt(old):0;
   const oldGift = old&&old.pot===n.pot&&isGift(old.category)?oldAmt:0;
   const amt=committedAmt(n);
+  if(isGift(n.category) && n.status!=='Rejected'){
+    const g=p.gift-oldGift+amt;
+    if(g>p.giftCap+0.5){
+      if(!(n.giftReason||'').trim()) e.push(`Gifting for this quarter would reach ${inr(g)}, above the ${S.cfg.giftCapPct}% limit of ${inr(p.giftCap)} by ${inr(g-p.giftCap)}. Fill in “Reason for exceeding the gifting limit” to continue.`);
+      else if(!(n.giftSailRef||'').trim()) w.push(`Gifting goes ${inr(g-p.giftCap)} over the ${S.cfg.giftCapPct}% limit. Add the SAIL approval reference for the excess when you have it.`);
+    } else if(g>=0.8*p.giftCap) w.push(`Gifting for this quarter will be ${inr(g)} — ${Math.round(g/p.giftCap*100)}% of the ${S.cfg.giftCapPct}% limit (${inr(p.giftCap)}).`);
+  }
+  if(n.status==='Draft'||n.status==='Rejected') return {errs:e,warns:w};
   if(p.expired) w.push(`The ${qLabel(p.fy,p.q)} budget could only be used until ${fmtD(p.useTo)} — that window has closed.`);
   const avail=p.balance+oldAmt;
   const pname=`${qLabel(p.fy,p.q)} ${PRODS.find(x=>x.k===p.prod).name}`;
@@ -795,10 +890,6 @@ function validate(n,id){
     e.push(`The ${pname} budget is not released yet — it can be used only from ${fmtD(p.useFrom)}${p.held?' (on hold by SAIL)':''}. Keep this activity as Draft until then.`);
   } else if(amt>avail+0.5){
     w.push(`This goes ${inr(amt-avail)} over the ${pname} balance of ${inr(Math.max(0,avail))} — it will show as Excess.`+(p.released<p.accrued?` (${inr(p.accrued-p.released)} more is released from ${fmtD(p.useFrom)}.)`:''));
-  }
-  if(isGift(n.category)){
-    const g=p.gift-oldGift+amt;
-    if(g>p.giftCap+0.5) e.push(`Gifting would reach ${inr(g)}, above the ${S.cfg.giftCapPct}% cap of ${inr(p.giftCap)} for this quarter's budget.`);
   }
   if(n.plannedOn && !p.expired && S.cfg.lapse && new Date(n.plannedOn)>p.useTo) w.push(`Planned date is after ${fmtD(p.useTo)}, when this budget lapses.`);
   return {errs:e,warns:w};
@@ -828,6 +919,10 @@ function bind(){
     try{await navigator.clipboard.writeText(csv);toast('Copied — paste into Excel');}catch(_){toast('Copy was blocked by the browser');}
   };
   if(g('dlBtn')) g('dlBtn').onclick=downloadReport;
+  if(g('tEdit')) g('tEdit').onclick=()=>{g('tView').style.display='none';g('tEditBox').style.display='';g('tEdit').style.display='none';};
+  if(g('tCancel')) g('tCancel').onclick=()=>render();
+  if(g('tSave')) g('tSave').onclick=()=>saveCfg({terms:g('tText').value.trim(),termsUpdatedBy:S.me.email,termsUpdatedAt:new Date().toISOString()});
+  if(g('tReset')) g('tReset').onclick=()=>saveCfg({terms:'',termsUpdatedBy:S.me.email,termsUpdatedAt:new Date().toISOString()});
   if(g('saveNotify')) g('saveNotify').onclick=()=>{
     const wa=s=>s.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const parts=l.split(',');const raw=parts.pop();let num=raw.replace(/\D/g,'');if(num.length===10)num='91'+num;return {name:parts.join(',').trim(),num};});
     const bw=wa(g('nBudWa').value), cw=wa(g('nClmWa').value), badW=[...bw,...cw].filter(x=>x.num.length<11||x.num.length>13);
