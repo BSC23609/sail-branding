@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { del } from '@vercel/blob';
-import { route, send, readBody, getSql, currentUser, canEdit, isAdmin, DEFAULT_CFG } from './_lib.js';
+import { route, send, readBody, getSql, currentUser, canEdit, isAdmin, DEFAULT_CFG, blobReady } from './_lib.js';
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -94,7 +94,7 @@ export default route(async (req, res) => {
     case 'delete_activity': {
       const aid = String(b.id || '');
       const files = await sql`SELECT id, url FROM sail_files WHERE kind = 'activity' AND ref = ${aid}`;
-      if (files.length && process.env.BLOB_READ_WRITE_TOKEN) { try { await del(files.map(f => f.url)); } catch (e) { console.warn('blob delete failed:', e.message); } }
+      if (files.length && blobReady()) { try { await del(files.map(f => f.url)); } catch (e) { console.warn('blob delete failed:', e.message); } }
       await sql`DELETE FROM sail_files WHERE kind = 'activity' AND ref = ${aid}`;
       await sql`DELETE FROM sail_activities WHERE id = ${aid}`;
       return send(res, 200, { ok: true });

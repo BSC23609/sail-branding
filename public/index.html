@@ -644,14 +644,14 @@ function docsList(kind,ref){
 }
 function docsPanel(kind,ref,types){
   const up = S.readonly ? '' : (!S.storage?.ready
-    ? '<div class="banner warn" style="margin:0">File storage is not connected yet — an admin needs to add a Vercel Blob store (Private) to the project.</div>'
+    ? '<div class="banner warn" style="margin:0">File storage is not connected yet — an admin needs to connect a Vercel Blob store (Private) to the project and redeploy.</div>'
     : `<div class="toolbar" style="margin:0"><select class="dType" style="width:auto;border:1px solid #cdd3dd;border-radius:6px;padding:6px 8px">${types.map(t=>`<option>${t}</option>`).join('')}</select>
        <input type="file" class="dFile" multiple style="max-width:280px"><button class="btn sm dUp">Upload</button><span class="hint dMsg"></span></div>
        <div class="hint">PDF, images, Word/Excel, CorelDraw/AI/PSD or ZIP — up to 100 MB each.</div>`);
   return `<div class="docs" data-kind="${kind}" data-ref="${esc(ref)}"><div class="dList">${docsList(kind,ref)}</div>${up}</div>`;
 }
-let _blobUpload=null;
-async function blobUpload(){ if(!_blobUpload){ _blobUpload=(await import('/blob-client.js')).upload; } return _blobUpload; }
+let _blobMod=null;
+async function blobUpload(){ if(!_blobMod){ _blobMod=await import('/blob-client.js'); } return S.storage?.mode==='presigned'?_blobMod.uploadPresigned:_blobMod.upload; }
 async function refreshFiles(){ try{const d=await api('/api/data'); S.files=d.files; S.storage=d.storage;}catch(_){ } }
 function bindDocs(root){
   root.querySelectorAll('.docs').forEach(box=>{

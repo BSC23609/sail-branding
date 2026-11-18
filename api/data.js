@@ -1,4 +1,4 @@
-import { route, send, getSql, currentUser, DEFAULT_CFG, DOC_TYPES, blobAccess, blobReady } from './_lib.js';
+import { route, send, getSql, currentUser, DEFAULT_CFG, DOC_TYPES, blobAccess, blobReady, blobMode } from './_lib.js';
 
 // GET → everything the page needs: settings, monthly lifting, branding activities.
 export default route(async (req, res) => {
@@ -16,5 +16,5 @@ export default route(async (req, res) => {
   const lifting = {};
   lift.forEach(r => { lifting[`${r.prod}_${r.month}`] = { prod: r.prod, month: r.month, tonnes: Number(r.tonnes) }; });
   const activities = acts.map(r => ({ ...r.data, id: r.id, createdAt: r.data.createdAt || r.created_at }));
-  return send(res, 200, { me, config, lifting, activities, files, storage: { ready: blobReady(), access: blobAccess(), docTypes: DOC_TYPES } });
+  return send(res, 200, { me, config, lifting, activities, files, storage: { ready: blobReady(), mode: blobMode(), access: blobAccess(), docTypes: DOC_TYPES } });
 });

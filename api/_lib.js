@@ -20,7 +20,9 @@ export const DEFAULT_CFG = {
 
 export const DOC_TYPES = ['Invoice', 'Creative / artwork', 'SAIL approval', 'Credit note', 'Photo / proof', 'SAIL invoice', 'Other'];
 export const blobAccess = () => (process.env.BLOB_ACCESS === 'public' ? 'public' : 'private');
-export const blobReady = () => !!process.env.BLOB_READ_WRITE_TOKEN;
+// Two ways Vercel connects a Blob store: a read-write token, or (newer) BLOB_STORE_ID + the project's OIDC token.
+export const blobMode = () => process.env.BLOB_READ_WRITE_TOKEN ? 'token' : (process.env.BLOB_STORE_ID ? 'presigned' : null);
+export const blobReady = () => !!blobMode();
 
 let _ready = null;
 export function ensureSchema() {
