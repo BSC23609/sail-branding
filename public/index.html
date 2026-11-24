@@ -412,6 +412,7 @@ function showLogin(msg){
   document.getElementById('app').style.display='none';
   const L=document.getElementById('login'); L.style.display='flex';
   document.getElementById('lErr').textContent=msg||'';
+  try{ if(window.top!==window.self) window.parent.postMessage({bsg:'login'},'*'); }catch(e){} // inside the group hub's tab
 }
 function showApp(){
   document.getElementById('login').style.display='none';
